@@ -82,22 +82,13 @@ module ActiveDurable
     # their parallel step, undone steps are marked, and an active execution gets a "next" ghost block.
     def track_items(execution, steps)
       undone = steps.select { |step| step.undo? && step.completed? }.to_set { |step| step.name.delete_suffix(":undo") }
-      forward = steps.reject(&:undo?)
-      branches, main = forward.partition { |step| step.position.nil? }
+      branches, main = steps.reject(&:undo?).partition { |step| step.position.nil? }
 
       items = main.sort_by(&:position).map do |step|
-        kids = branches.select { |branch| branch.name.start_with?("#{step.name}/") }
-        build_item(step, undone, kids)
+        build_item(step, undone, branches.select { |branch| branch.name.start_with?("#{step.name}/") })
       end
-      branches.group_by { |branch| branch.name.split("/", 2).first }.each do |group, kids|
-        next if main.any? { |step| step.name == group }
-
-        items << TrackItem.new(name: group, kind: "parallel", state: "running", step: nil,
-                               branches: kids.map { |kid| build_item(kid, undone, []) })
-      end
-      if %w[pending running].include?(execution.status) && !execution.compensating
-        items << TrackItem.new(name: "next", kind: "ghost", state: "next", step: nil, branches: [])
-      end
+      items.concat(unfinished_parallel_groups(main, branches, undone))
+      items << TrackItem.new(name: "next", kind: "ghost", state: "next", step: nil, branches: []) if moving?(execution)
       items
     end
 
@@ -107,8 +98,8 @@ module ActiveDurable
     end
 
     def item_title(item)
-      [item.name, item.kind, state_word(item.state), item.step&.attempts.to_i.positive? ? "#{item.step.attempts} attempts" : nil]
-        .compact.join(", ")
+      attempts = item.step&.attempts.to_i
+      [item.name, item.kind, state_word(item.state), ("#{attempts} attempts" if attempts > 1)].compact.join(", ")
     end
 
     def state_word(state)
@@ -130,6 +121,21 @@ module ActiveDurable
     end
 
     private
+
+    # Branches of a flow.parallel whose own entry is not written yet (it is written when every branch ends).
+    def unfinished_parallel_groups(main, branches, undone)
+      recorded = main.to_set(&:name)
+      branches.group_by { |branch| branch.name.split("/", 2).first }.filter_map do |group, kids|
+        next if recorded.include?(group)
+
+        TrackItem.new(name: group, kind: "parallel", state: "running", step: nil,
+                      branches: kids.map { |kid| build_item(kid, undone, []) })
+      end
+    end
+
+    def moving?(execution)
+      %w[pending running].include?(execution.status) && !execution.compensating
+    end
 
     def build_item(step, undone, kids)
       TrackItem.new(name: step.name.split("/", 2).last, kind: step.kind, state: step_state(step, undone), step: step,

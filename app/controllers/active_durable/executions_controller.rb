@@ -10,16 +10,8 @@ module ActiveDurable
     end
 
     def index
-      scope = Execution.order(updated_at: :desc)
-      @status = params[:status].presence_in(Execution::STATUSES)
-      scope = scope.where(status: @status) if @status
-      @recipe = params[:recipe].presence
-      scope = scope.where(recipe: @recipe) if @recipe
-      @query = params[:q].to_s.strip
-      scope = scope.where("id LIKE ?", "%#{Execution.sanitize_sql_like(@query)}%") if @query.present?
-
       @page = [params[:page].to_i, 1].max
-      rows = scope.offset((@page - 1) * PER_PAGE).limit(PER_PAGE + 1).to_a
+      rows = filtered_executions.offset((@page - 1) * PER_PAGE).limit(PER_PAGE + 1).to_a
       @next_page = rows.size > PER_PAGE
       @executions = rows.first(PER_PAGE)
       @steps_by_execution = Step.where(execution_id: @executions.map(&:id)).order(:id).group_by(&:execution_id)
@@ -50,6 +42,18 @@ module ActiveDurable
     def rerun
       execution = ActiveDurable.rerun(params[:id], from: params.require(:from))
       redirect_to execution_path(execution), notice: "New execution started from :#{params[:from]}."
+    end
+
+    private
+
+    def filtered_executions
+      scope = Execution.order(updated_at: :desc)
+      @status = params[:status].presence_in(Execution::STATUSES)
+      scope = scope.where(status: @status) if @status
+      @recipe = params[:recipe].presence
+      scope = scope.where(recipe: @recipe) if @recipe
+      @query = params[:q].to_s.strip
+      @query.present? ? scope.where("id LIKE ?", "%#{Execution.sanitize_sql_like(@query)}%") : scope
     end
   end
 end
