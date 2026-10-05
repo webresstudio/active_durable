@@ -50,7 +50,7 @@ module ActiveDurable
     def fetch(name, version)
       versions_for(name).find { |recipe| recipe.version == version.to_i } ||
         raise(UnknownRecipe, "recipe :#{name} has no version #{version}. Keep old versions defined " \
-                             "until no execution uses them.")
+                             "until no execution uses them (rake active_durable:versions).")
     end
 
     def versions_for(name)

@@ -7,13 +7,21 @@ module ActiveDurable
     def initialize(execution, lease)
       @execution = execution
       @lease = lease
+      @mutex = Mutex.new # parallel branches write from several threads
       @entries = Step.where(execution_id: execution.id).order(:id).index_by(&:name)
       @by_position = {}
       @entries.each_value { |entry| @by_position[entry.position] = entry if entry.position }
     end
 
     def [](name)
-      @entries[name]
+      @mutex.synchronize { @entries[name] }
+    end
+
+    # Completed branch entries of a flow.parallel, in the order they finished.
+    def branches_of(parallel_name)
+      prefix = "#{parallel_name}/"
+      @mutex.synchronize { @entries.values.select { |entry| entry.name.start_with?(prefix) && !entry.undo? } }
+            .sort_by { |entry| [entry.updated_at, entry.id] }
     end
 
     def at_position(position)
@@ -21,7 +29,7 @@ module ActiveDurable
     end
 
     def forward_entries
-      @entries.values.reject(&:undo?)
+      @mutex.synchronize { @entries.values.reject(&:undo?) }
     end
 
     def complete!(name, kind:, position:, result:)
@@ -44,19 +52,28 @@ module ActiveDurable
 
     private
 
+    # The database write happens outside the mutex, so a slow transaction in one branch never blocks
+    # another branch while it holds the lock (SQLite would deadlock).
     def write!(name, **attributes)
+      now = ActiveDurable.now
+      entry = self[name]
       Record.transaction do
         @lease.renew!
-        entry = @entries[name]
         if entry
-          entry.update_columns(attributes.merge(updated_at: ActiveDurable.now))
+          entry.update_columns(attributes.merge(updated_at: now))
         else
-          entry = Step.create!(execution_id: @execution.id, name: name, **attributes)
-          @entries[name] = entry
+          entry = Step.create!(execution_id: @execution.id, name: name, created_at: now, updated_at: now, **attributes)
         end
-        @by_position[entry.position] = entry if entry.position
-        entry
       end
+      remember = lambda do
+        @mutex.synchronize do
+          @entries[name] = entry
+          @by_position[entry.position] = entry if entry.position
+        end
+      end
+      # Inside flow.transaction the outer transaction may still roll back: only remember what commits.
+      Record.connection.transaction_open? ? ActiveRecord.after_all_transactions_commit(&remember) : remember.call
+      entry
     rescue ActiveRecord::RecordNotUnique
       raise LeaseLost, "another worker already wrote :#{name} for #{@execution.id}"
     end

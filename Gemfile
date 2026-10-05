@@ -13,11 +13,14 @@ gem "activejob", rails_version
 gem "activerecord", rails_version
 gem "activesupport", rails_version
 gem "railties", rails_version
+# Active Support 8.0 still passes quirks_mode to JSON.generate, which json 3 removed.
+gem "json", "< 3" if rails_version.include?("8.0")
 
 gem "pg", "~> 1.5"
 gem "sqlite3", ">= 2.1"
 gem "trilogy", "~> 2.9"
 
+gem "opentelemetry-sdk", "~> 1.5"
 gem "puma", "~> 7.0" # bin/demo
 gem "rack-test", "~> 2.1"
 gem "rake", "~> 13.0"

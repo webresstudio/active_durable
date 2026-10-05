@@ -12,8 +12,10 @@ order, even if the server dies in the middle.
 - **A crash tester.** `ActiveDurable::Testing.crash_everywhere` kills your saga at every possible point and lets
   you assert nothing was duplicated.
 - **A dashboard** that also works in `rails new --api` apps, to retry, undo or rerun a saga from a step.
+- **Parallel branches, recipe versions and OpenTelemetry** when you need them.
 
-Rails 7.2+, Ruby 3.3+, PostgreSQL (MySQL and SQLite: see the changelog).
+Rails 7.2+, Ruby 3.3+, and PostgreSQL, MySQL 8+ or SQLite 3. Tested on Rails 7.2, 8.0 and 8.1 against the
+three databases.
 
 ## Installation
 
@@ -110,6 +112,7 @@ That has three consequences you should keep in mind:
 | `flow.pivot(name, retry:) { \|ticket\| ... }` | The step after which there is no going back | Retried, then the saga compensates |
 | `flow.sleep(name, duration)` | Waiting without holding a worker | — |
 | `flow.wait_for(name, timeout:)` | Waiting for `Durable.signal` | A timeout fails the saga |
+| `flow.parallel(name) { \|branches\| ... }` | Several steps at the same time | Like a step, per branch |
 
 ### Tickets
 
@@ -164,6 +167,45 @@ you choose (the call is then idempotent).
 If you change a recipe while executions are in flight, a replay may reach a step the notebook did not record.
 Instead of guessing, ActiveDurable blocks that execution with `ActiveDurable::RecipeChanged`, naming the step it
 expected and the one it found. The same happens if code outside a step reads data that changed between runs.
+
+### Parallel branches
+
+```ruby
+reservations = flow.parallel(:reserve_stock) do |branches|
+  order.warehouses.each do |warehouse|
+    branches.step(warehouse.code, undo: ->(r, ticket) { warehouse.release(r["id"], key: ticket) }) do |ticket|
+      { "id" => warehouse.reserve(order.items_for(warehouse), key: ticket) }
+    end
+  end
+end
+reservations # => { "MEX" => { "id" => ... }, "GDL" => { "id" => ... } }
+```
+
+Each branch runs in its own thread (`config.parallel_concurrency`, 4 by default), is its own notebook entry
+(`reserve_stock/MEX`) with its own ticket and retries, and accepts the same options as a step (`branches.step` or
+`branches.transaction`). After a crash only the unfinished branches run again. If a branch runs out of attempts,
+the saga undoes the branches that completed (the last one to finish first) and every step before the block.
+
+Threads suit steps that wait on the network. Give your connection pool at least `parallel_concurrency + 1`
+connections. The branch list must be the same on every replay: build it from data read inside a step, or from
+data that does not change.
+
+### Recipe versions
+
+Changing a recipe while executions are in flight triggers the recipe-changed alarm. Keep the old block and define
+a new version instead:
+
+```ruby
+CheckoutSaga = Durable.define(:checkout, version: 2) do |flow, order_id:|
+  flow.step(:verify_address) { ... } # new
+  # ...the rest of the steps
+end
+Durable.define(:checkout, version: 1) { |flow, order_id:| ... } # keep until nothing uses it
+```
+
+New executions use the highest version; each execution keeps the version it started with.
+`bin/rails active_durable:versions` (or `ActiveDurable.versions_in_use`) lists the versions unfinished executions
+still use, so you know when an old one can be deleted.
 
 ### Statuses
 
@@ -236,6 +278,18 @@ end
 | `blocked.active_durable` | `execution_id`, `recipe`, `error` |
 | `retried.active_durable` / `compensation_requested.active_durable` / `rerun.active_durable` | operator actions |
 
+## OpenTelemetry
+
+```ruby
+# config/initializers/active_durable.rb
+require "active_durable/open_telemetry"
+ActiveDurable::OpenTelemetry.install!
+```
+
+Every worker run becomes a span (`active_durable.execution checkout`) with its steps, undos and compensation
+nested inside, including parallel branches. Failed steps record their exception; sleeps and waits do not count as
+errors. You need the `opentelemetry-sdk` gem configured in your app.
+
 ## Testing
 
 ```ruby
@@ -289,7 +343,9 @@ bundle exec rubocop
 bin/demo                          # the dashboard with sample sagas at http://localhost:3000/durable
 ```
 
-Use Ruby 3.3.1 or newer: Ruby 3.3.0 has a parser bug that breaks Action View 8.1.
+Use Ruby 3.3.1 or newer: Ruby 3.3.0 has a parser bug that breaks Action View 8.1. Rails 8.0 apps need
+`json < 3`: Active Support 8.0 still passes an option that json 3 removed. Both are outside this gem, but you will
+hit them while developing it.
 
 The design notes (in Spanish) live in `docs/`.
 

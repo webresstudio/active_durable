@@ -16,6 +16,8 @@ require_relative "active_durable/registry"
 require_relative "active_durable/lease"
 require_relative "active_durable/notebook"
 require_relative "active_durable/flow"
+require_relative "active_durable/parallel"
+require_relative "active_durable/flow_parallel"
 require_relative "active_durable/runner"
 require_relative "active_durable/sweeper"
 require_relative "active_durable/operations"
@@ -49,8 +51,18 @@ module ActiveDurable
 
     # Defines a recipe. Assign the result to a constant (CheckoutSaga = Durable.define(:checkout) { ... })
     # so Rails can autoload it in any process.
+    #
+    # To change a recipe while executions are in flight, keep the old block and add a new version:
+    # new executions use the highest version, and every execution keeps running the version it started with.
     def define(name, version: 1, &)
       registry.define(name, version: version, &)
+    end
+
+    # { ["checkout", 1] => 12, ["checkout", 2] => 340 }: executions that are not finished yet (active or
+    # blocked) per recipe version. A version can be deleted once it no longer appears here.
+    def versions_in_use
+      Execution.where(status: Execution::ACTIVE + %w[blocked]).group(:recipe, :recipe_version).count
+               .transform_keys { |(recipe, version)| [recipe, version.to_i] }
     end
 
     # Starts a saga. Call it inside the transaction that creates your record: the saga row is committed
@@ -99,6 +111,12 @@ module ActiveDurable
 
     def time_offset
       @time_offset ||= 0.0
+    end
+
+    # Objects with #capture (called in the worker thread) and #wrap(captured) { } (called around each
+    # flow.parallel branch thread). Used to carry context such as OpenTelemetry spans into the branches.
+    def branch_wrappers
+      @branch_wrappers ||= []
     end
 
     def enqueue(execution_id, wait_until: nil)

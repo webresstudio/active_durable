@@ -7,6 +7,25 @@ regenerate the migration when upgrading.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-05
+
+Third version: everything the design called "later", except the Rust gem.
+
+### Added
+
+- `flow.parallel`: branches that run in threads, each checkpointed with its own ticket and retries. Unfinished
+  branches resume after a crash; completed ones are undone in the order they finished. Branch threads run inside
+  the Rails executor and keep OpenTelemetry context.
+- Recipe versions: `Durable.define(name, version:)`, executions keep the version they started with,
+  `ActiveDurable.versions_in_use` and `rake active_durable:versions`.
+- `ActiveDurable::OpenTelemetry.install!`: nested spans for executions, steps, compensations and undos.
+- `ActiveDurable.branch_wrappers` to carry other thread-local context into parallel branches.
+
+### Changed
+
+- MySQL 8+ and SQLite 3 are supported and run the full suite, like PostgreSQL. Tested on Rails 7.2, 8.0 and 8.1.
+- The notebook is safe to write from several threads, and only remembers writes whose transaction committed.
+
 ## [0.2.0] - 2026-10-05
 
 Second version: see it and operate it.
