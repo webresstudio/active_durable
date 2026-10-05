@@ -22,6 +22,7 @@ module ActiveDurable
       rows = scope.offset((@page - 1) * PER_PAGE).limit(PER_PAGE + 1).to_a
       @next_page = rows.size > PER_PAGE
       @executions = rows.first(PER_PAGE)
+      @steps_by_execution = Step.where(execution_id: @executions.map(&:id)).order(:id).group_by(&:execution_id)
       @counts = Execution.group(:status).count
       @recipes = Execution.distinct.order(:recipe).pluck(:recipe)
     end
@@ -29,6 +30,7 @@ module ActiveDurable
     def show
       @execution = Execution.find(params[:id])
       steps = @execution.steps.to_a
+      @steps = steps
       @forward_steps = steps.reject(&:undo?).sort_by { |step| step.position.to_i }
       @undo_steps = steps.select(&:undo?)
       @signals = @execution.signals.to_a

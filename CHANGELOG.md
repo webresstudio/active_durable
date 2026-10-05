@@ -7,6 +7,14 @@ regenerate the migration when upgrading.
 
 ## [Unreleased]
 
+### Changed
+
+- The dashboard is redrawn full screen: a rail with statuses and recipes, and every saga shown as toy blocks.
+  Each block's animation tells its state (running beats, a waiting step pings like a radar, a sleeping one fills
+  a ring until it wakes, a failed one shakes, undone ones are striped and wired backwards), with a visible point
+  of no return, live countdowns, and a live mode that refreshes the list and flashes the rows that changed.
+  Animations stop when the system asks for reduced motion.
+
 ## [0.3.0] - 2026-10-05
 
 Third version: everything the design called "later", except the Rust gem.

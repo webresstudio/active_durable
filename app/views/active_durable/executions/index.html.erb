@@ -1,60 +1,90 @@
-<section class="card">
-  <div class="row">
-    <h1>Executions</h1>
-    <span class="muted"><%= @counts.values.sum %> in total</span>
-  </div>
-  <div class="row counts" aria-label="Filter by status">
-    <%= link_to executions_path(recipe: @recipe, q: @query.presence), class: ("on" if @status.nil?) do %>
-      <span class="pill">all</span>
-    <% end %>
-    <% ActiveDurable::Execution::STATUSES.each do |status| %>
-      <% next unless @counts[status] %>
-      <%= link_to executions_path(status: status, recipe: @recipe, q: @query.presence), class: ("on" if @status == status) do %>
-        <%= status_pill("#{status} · #{@counts[status]}") %>
+<% content_for :title, "Executions" %>
+<% blocked = @counts["blocked"].to_i %>
+<% moving = ActiveDurable::Execution::ACTIVE.sum { |status| @counts[status].to_i } %>
+
+<header class="stage-head">
+  <div>
+    <h1><%= @status ? ActiveDurable::DashboardHelper::STATUS_WORDS[@status] : "Executions" %><%= " in #{@recipe}" if @recipe %></h1>
+    <p class="lede" data-live-summary>
+      <% if blocked.positive? %>
+        <strong class="error"><%= pluralize(blocked, "saga") %> <%= blocked == 1 ? "needs" : "need" %> a person.</strong>
       <% end %>
-    <% end %>
+      <%= moving.zero? ? "Nothing is in progress." : "#{pluralize(moving, "saga")} in progress." %>
+      <%= pluralize(@counts.values.sum, "execution") %> in total.
+    </p>
   </div>
-  <%= form_with url: executions_path, method: :get, class: "inline", local: true do %>
-    <%= hidden_field_tag :status, @status if @status %>
-    <%= select_tag :recipe, options_for_select([["All recipes", ""]] + @recipes, @recipe), id: "recipe-filter" %>
-    <%= search_field_tag :q, @query, placeholder: "Execution id contains…", id: "id-filter" %>
-    <button type="submit">Filter</button>
+  <div class="tools">
+    <%= form_with url: executions_path, method: :get, class: "inline", local: true do %>
+      <%= hidden_field_tag :status, @status if @status %>
+      <%= select_tag :recipe, options_for_select([["All recipes", ""]] + @recipes, @recipe), id: "recipe-filter", "aria-label": "Recipe" %>
+      <%= search_field_tag :q, @query, placeholder: "Execution id contains…", id: "id-filter", "aria-label": "Execution id" %>
+      <button type="submit">Filter</button>
+    <% end %>
+    <button type="button" class="live" data-live-toggle aria-pressed="false">
+      <span class="led" aria-hidden="true"></span><span data-live-label>Paused</span>
+    </button>
+  </div>
+</header>
+
+<section class="sheet" data-live-region>
+  <% if @executions.empty? %>
+    <div class="empty">
+      <div class="mini" aria-hidden="true"><i class="b st-next"></i><i class="b st-next"></i><i class="b st-next"></i></div>
+      <p><strong>No executions here yet.</strong></p>
+      <p class="muted">Start one with <code>Durable.start(:recipe_name)</code> and it appears here.</p>
+    </div>
+  <% else %>
+    <table>
+      <thead>
+        <tr><th>Execution</th><th>Steps</th><th>Status</th><th>Wakes</th><th>Problem</th><th>Updated</th></tr>
+      </thead>
+      <tbody>
+        <% @executions.each do |execution| %>
+          <% items = track_items(execution, @steps_by_execution.fetch(execution.id, [])) %>
+          <tr data-id="<%= execution.id %>" data-status="<%= execution.status %>">
+            <td>
+              <%= link_to execution.id, execution_path(execution), class: "exec-link" %>
+              <span class="recipe"><%= execution.recipe %>, version <%= execution.recipe_version %></span>
+            </td>
+            <td>
+              <span class="mini" role="img" aria-label="<%= items.map { |item| item_title(item) }.join("; ") %>">
+                <% items.first(14).each_with_index do |item, index| %>
+                  <% if item.branches.any? %>
+                    <span class="stack" title="<%= item_title(item) %>">
+                      <% item.branches.first(4).each do |branch| %>
+                        <i class="b st-<%= branch.state %>" style="--i: <%= index %>"></i>
+                      <% end %>
+                    </span>
+                  <% else %>
+                    <i class="b st-<%= item.state %> k-<%= item.kind %>" style="--i: <%= index %>" title="<%= item_title(item) %>"></i>
+                  <% end %>
+                <% end %>
+                <% if items.size > 14 %><span class="more">+<%= items.size - 14 %></span><% end %>
+              </span>
+            </td>
+            <td>
+              <span class="status tone-<%= ActiveDurable::DashboardHelper::STATUS_TONES.fetch(execution.status, "muted") %>">
+                <i class="dot" aria-hidden="true"></i><%= execution.status %>
+              </span>
+              <% if compensating_now?(execution) %><%= status_pill("compensating") %><% end %>
+            </td>
+            <td class="when"><%= execution.wake_at ? when_text(execution.wake_at) : tag.span("—", class: "muted") %></td>
+            <td class="problem"><%= execution.error&.dig("message").to_s.truncate(110) %></td>
+            <td class="when"><%= when_text(execution.updated_at) %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
   <% end %>
 </section>
 
-<section class="card">
-  <% if @executions.empty? %>
-    <p class="muted">No executions here yet. Start one with <code>Durable.start(:recipe_name)</code>.</p>
-  <% else %>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr><th>Execution</th><th>Recipe</th><th>Status</th><th>Wakes</th><th>Problem</th><th>Updated</th></tr>
-        </thead>
-        <tbody>
-          <% @executions.each do |execution| %>
-            <tr>
-              <td class="nowrap"><%= link_to execution.id, execution_path(execution), class: "id" %></td>
-              <td><%= execution.recipe %> <span class="muted">v<%= execution.recipe_version %></span></td>
-              <td>
-                <%= status_pill(execution.status) %>
-                <% if compensating_now?(execution) %><%= status_pill("compensating") %><% end %>
-              </td>
-              <td><%= execution.wake_at ? when_text(execution.wake_at) : tag.span("—", class: "muted") %></td>
-              <td class="error"><%= execution.error&.dig("message").to_s.truncate(90) %></td>
-              <td><%= when_text(execution.updated_at) %></td>
-            </tr>
-          <% end %>
-        </tbody>
-      </table>
-    </div>
-    <div class="row">
-      <% if @page > 1 %>
-        <%= link_to "← Newer", executions_path(status: @status, recipe: @recipe, q: @query.presence, page: @page - 1) %>
-      <% end %>
-      <% if @next_page %>
-        <%= link_to "Older →", executions_path(status: @status, recipe: @recipe, q: @query.presence, page: @page + 1) %>
-      <% end %>
-    </div>
-  <% end %>
-</section>
+<% if @page > 1 || @next_page %>
+  <nav class="pager" aria-label="Pages">
+    <% if @page > 1 %>
+      <%= link_to "Newer", executions_path(status: @status, recipe: @recipe, q: @query.presence, page: @page - 1) %>
+    <% end %>
+    <% if @next_page %>
+      <%= link_to "Older", executions_path(status: @status, recipe: @recipe, q: @query.presence, page: @page + 1) %>
+    <% end %>
+  </nav>
+<% end %>
