@@ -4,7 +4,7 @@
 <% undos = undo_lane(@steps) %>
 <% backwards = @execution.compensating %>
 
-<nav class="crumbs"><%= link_to "Executions", executions_path %> / <%= @execution.recipe %></nav>
+<p class="crumbs">Executions / <%= @execution.recipe %></p>
 
 <header class="hero tone-<%= tone %>">
   <div class="beacon" aria-hidden="true"></div>

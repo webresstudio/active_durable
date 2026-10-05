@@ -6,10 +6,10 @@
   <title><%= content_for?(:title) ? "#{yield(:title)} · ActiveDurable" : "ActiveDurable" %></title>
   <%= csrf_meta_tags %>
   <style nonce="<%= content_security_policy_nonce %>">
-    /* Layout: a fixed rail (statuses, recipes) and a full-width stage. Sagas are drawn as toy blocks on a
-       graph-paper ground; every animation encodes a state (running, waiting, sleeping, failed, undone). */
+    /* Layout: a fixed rail (statuses, recipes) and a full-width stage. Sagas are drawn as blocks wired
+       together; every animation encodes a state (running, waiting, sleeping, failed, undone). */
     :root {
-      --paper: #f2f4fa; --grid: rgba(46, 82, 170, .07); --surface: #ffffff; --sunken: #eaeef7;
+      --paper: #f2f4fa; --surface: #ffffff; --sunken: #eaeef7;
       --ink: #141b33; --soft: #56607e; --line: #d3daea;
       --jade: #12936a; --jade-bg: #daf3e9; --amber: #a86f00; --amber-bg: #fcefcc;
       --cobalt: #2c5fd6; --cobalt-bg: #e1e9fc; --ruby: #cc1f3d; --ruby-bg: #fbe1e6;
@@ -21,7 +21,7 @@
     }
     @media (prefers-color-scheme: dark) {
       :root {
-        --paper: #0e1424; --grid: rgba(120, 150, 255, .06); --surface: #151d33; --sunken: #10172a;
+        --paper: #0e1424; --surface: #151d33; --sunken: #10172a;
         --ink: #e8ecf8; --soft: #9aa5c4; --line: #26304d;
         --jade: #3dd6a0; --jade-bg: #0f3329; --amber: #f2b641; --amber-bg: #3a2d10;
         --cobalt: #7ea6ff; --cobalt-bg: #182649; --ruby: #ff5c74; --ruby-bg: #3b1522;
@@ -42,8 +42,6 @@
     body {
       margin: 0; color: var(--ink); font: 15px/1.5 var(--f-body);
       background-color: var(--paper);
-      background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
-      background-size: 28px 28px; background-attachment: fixed;
     }
     a { color: var(--cobalt); text-underline-offset: 3px; }
     :focus-visible { outline: 3px solid var(--cobalt); outline-offset: 2px; border-radius: 6px; }
@@ -151,7 +149,7 @@
     .no-entrance .b, .no-entrance .block, .no-entrance .wire { animation-delay: 0s !important; animation-duration: .01s !important; }
 
     /* ---------- one execution ---------- */
-    .crumbs { color: var(--soft); font-size: .9rem; }
+    .crumbs { color: var(--ink); font-size: .9rem; font-weight: 600; }
     .hero { display: flex; align-items: center; gap: 22px; padding: 22px 24px; border-radius: 20px; flex-wrap: wrap;
             background: linear-gradient(120deg, var(--cb), color-mix(in srgb, var(--surface) 90%, transparent) 70%);
             border: 1px solid color-mix(in srgb, var(--c) 35%, var(--line)); }
@@ -162,9 +160,6 @@
              background: var(--surface); border: 2px solid var(--c); white-space: nowrap; }
     .beacon { width: 54px; height: 54px; border-radius: 16px; background: var(--c); position: relative; flex: none;
               box-shadow: 0 6px 0 color-mix(in srgb, var(--c) 55%, #000); }
-    .beacon::before, .beacon::after { content: ""; position: absolute; top: -6px; width: 14px; height: 8px; border-radius: 50%;
-                                      background: var(--c); box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--c) 60%, #000); }
-    .beacon::before { left: 9px; } .beacon::after { right: 9px; }
     .hero.tone-bad .beacon { animation: alarm 1.6s ease-in-out infinite; }
     .hero.tone-busy .beacon { animation: beat 1.3s ease-in-out infinite; }
     .hero.tone-wait .beacon { animation: float 3s ease-in-out infinite; }
@@ -181,15 +176,12 @@
     .board { background: color-mix(in srgb, var(--surface) 70%, transparent); border: 1px solid var(--line); border-radius: 20px;
              padding: 26px 24px 22px; display: flex; flex-direction: column; gap: 22px; }
     .board-head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: baseline; }
-    .track-scroll { overflow-x: auto; padding: 14px 4px 18px; }
+    .track-scroll { overflow-x: auto; padding: 6px 4px 18px; }
     .track { display: flex; align-items: center; width: 100%; }
     .block { position: relative; flex: 1 1 0; min-width: 158px; max-width: 300px; min-height: 124px; padding: 14px 14px 12px; border-radius: 16px;
              background: var(--cb, var(--slate-bg)); border: 2px solid var(--c, var(--slate)); --c2: color-mix(in srgb, var(--c, var(--slate)) 55%, #000);
              box-shadow: 0 7px 0 var(--c2); display: flex; flex-direction: column; gap: 4px;
              animation: drop .55s cubic-bezier(.2, 1.5, .4, 1) both; animation-delay: calc(var(--i, 0) * 90ms); }
-    .block::before, .block::after { content: ""; position: absolute; top: -9px; width: 26px; height: 10px; border-radius: 50%;
-                                     background: var(--c, var(--slate)); box-shadow: inset 0 -3px 0 var(--c2); }
-    .block::before { left: 26px; } .block::after { right: 26px; }
     .block .top { display: flex; justify-content: space-between; align-items: center; font-size: .78rem; color: var(--soft); }
     .block .kind { font-weight: 700; }
     .block .no { font: 800 .9rem/1 var(--f-round); color: var(--c, var(--soft)); }
@@ -204,7 +196,6 @@
     .block.st-undone { background: repeating-linear-gradient(135deg, var(--violet-bg) 0 10px, color-mix(in srgb, var(--violet) 22%, var(--violet-bg)) 10px 20px); }
     .block.st-undone h3 { text-decoration: line-through; text-decoration-thickness: 2px; }
     .block.st-next { background: transparent; border-style: dashed; box-shadow: none; animation: drop .55s both, beat 1.4s ease-in-out infinite; }
-    .block.st-next::before, .block.st-next::after { opacity: .35; }
     .block.st-retrying { animation: drop .55s both, beat 2.4s ease-in-out infinite; }
     .block.st-running { animation: drop .55s both, beat 1.2s ease-in-out infinite; }
     .block .radar, .block .radar::after { position: absolute; right: 12px; bottom: 12px; width: 14px; height: 14px; border-radius: 50%;
