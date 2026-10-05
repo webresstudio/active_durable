@@ -1,0 +1,58 @@
+# frozen_string_literal: true
+
+class CreateActiveDurableTables < ActiveRecord::Migration<%= migration_version %>
+  def change
+    # One row per saga run. It is also the buzón: create it in the same transaction as your record.
+    create_table :durable_executions, id: false do |t|
+      t.string :id, null: false, primary_key: true
+      t.string :recipe, null: false
+      t.integer :recipe_version, null: false, default: 1
+      t.string :status, null: false
+      t.boolean :compensating, null: false, default: false
+      t.column :input, json_type
+      t.column :output, json_type
+      t.column :error, json_type
+      t.datetime :wake_at
+      t.datetime :locked_until
+      t.string :lease_token
+      t.timestamps
+    end
+    add_index :durable_executions, %i[status wake_at]
+    add_index :durable_executions, %i[recipe status]
+
+    # The notebook: one row per step (and per undo) of an execution.
+    create_table :durable_steps do |t|
+      t.string :execution_id, null: false
+      t.string :name, null: false
+      t.string :kind, null: false
+      t.integer :position
+      t.string :status, null: false
+      t.integer :attempts, null: false, default: 0
+      t.column :result, json_type
+      t.column :error, json_type
+      t.datetime :wake_at
+      t.timestamps
+    end
+    add_index :durable_steps, %i[execution_id name], unique: true
+    add_index :durable_steps, %i[execution_id position]
+    add_foreign_key :durable_steps, :durable_executions, column: :execution_id, on_delete: :cascade
+
+    # Signals for flow.wait_for. They can arrive before the saga starts waiting.
+    create_table :durable_signals do |t|
+      t.string :execution_id, null: false
+      t.string :name, null: false
+      t.column :payload, json_type
+      t.datetime :consumed_at
+      t.datetime :created_at, null: false
+    end
+    add_index :durable_signals, %i[execution_id name consumed_at]
+    add_foreign_key :durable_signals, :durable_executions, column: :execution_id, on_delete: :cascade
+  end
+
+  private
+
+  # jsonb on PostgreSQL, json elsewhere. No database defaults on these columns: MySQL rejects them.
+  def json_type
+    connection.adapter_name.downcase.include?("postg") ? :jsonb : :json
+  end
+end

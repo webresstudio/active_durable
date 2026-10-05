@@ -1,0 +1,904 @@
+<title>ActiveDurable en cubitos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&family=Kalam:wght@400;700&family=Rubik:wght@500;700;800&display=swap">
+<style>
+/* Layout: cuaderno cuadriculado. Una columna de lectura (~68ch); el simulador ocupa todo el ancho (1040px). */
+:root{
+  --paper:#F3F5FA; --grid:rgba(45,80,160,.07); --surface:#FFFFFF; --sunken:#EEF1F8;
+  --ink:#172038; --ink-soft:#4B5574; --line:#D5DBE9; --chip:#E7EBF5;
+  --ruby:#C21F3A; --ruby-soft:#FBE3E7;
+  --blue:#2D64D8; --blue-soft:#E3EBFC;
+  --amber:#AD7600; --amber-soft:#FBEFCF;
+  --green:#15855A; --green-soft:#DAF1E6;
+  --violet:#6A43C6; --violet-soft:#ECE5FA;
+  --rule:rgba(45,80,160,.15); --margin:#E28896;
+  --code-bg:#161C30; --code-fg:#E5E9F5; --code-dim:#8D97B8; --code-key:#FF94A8; --code-str:#9BE3B8; --code-sym:#FFD27A; --code-title:#A2BEFF;
+  --f-display:"Rubik","Avenir Next",system-ui,sans-serif;
+  --f-body:"Atkinson Hyperlegible","Segoe UI",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --f-hand:"Kalam","Marker Felt","Comic Sans MS",cursive;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0F121B; --grid:rgba(140,170,255,.055); --surface:#171B28; --sunken:#121621;
+    --ink:#E7EAF3; --ink-soft:#A4ABC3; --line:#2A3146; --chip:#232A3E;
+    --ruby:#FF5C74; --ruby-soft:#3A1720;
+    --blue:#729EFF; --blue-soft:#1A2645;
+    --amber:#F0B640; --amber-soft:#382B10;
+    --green:#3FCB92; --green-soft:#11342A;
+    --violet:#A98BFF; --violet-soft:#2A2047;
+    --rule:rgba(140,170,255,.13); --margin:#9A4654;
+    --code-bg:#0A0D16; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0F121B; --grid:rgba(140,170,255,.055); --surface:#171B28; --sunken:#121621;
+  --ink:#E7EAF3; --ink-soft:#A4ABC3; --line:#2A3146; --chip:#232A3E;
+  --ruby:#FF5C74; --ruby-soft:#3A1720;
+  --blue:#729EFF; --blue-soft:#1A2645;
+  --amber:#F0B640; --amber-soft:#382B10;
+  --green:#3FCB92; --green-soft:#11342A;
+  --violet:#A98BFF; --violet-soft:#2A2047;
+  --rule:rgba(140,170,255,.13); --margin:#9A4654;
+  --code-bg:#0A0D16; color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+body{
+  background-color:var(--paper);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:24px 24px;
+  color:var(--ink); font:17px/1.6 var(--f-body);
+}
+.page{max-width:1040px;margin:0 auto;padding-inline:20px;padding-block:28px 80px;display:flex;flex-direction:column;gap:72px}
+h1,h2,h3{font-family:var(--f-display);line-height:1.15;text-wrap:balance;margin:0}
+h2{font-size:clamp(1.6rem,3.4vw,2.2rem);font-weight:800;letter-spacing:-.01em}
+h3{font-size:1.25rem;font-weight:700}
+p{margin:0}
+a{color:var(--blue);text-underline-offset:3px}
+a:focus-visible,button:focus-visible{outline:3px solid var(--blue);outline-offset:2px;border-radius:6px}
+.prose{max-width:68ch;display:flex;flex-direction:column;gap:14px}
+.eyebrow{font:600 .78rem/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft)}
+.section-head{display:flex;flex-direction:column;gap:10px;max-width:68ch}
+.lead{font-size:1.08rem;color:var(--ink-soft)}
+code{font-family:var(--f-mono);font-size:.86em;background:var(--chip);padding:.08em .35em;border-radius:5px}
+pre{margin:0;background:var(--code-bg);color:var(--code-fg);border-radius:10px;padding:14px 16px;overflow-x:auto;font:13.5px/1.6 var(--f-mono);max-width:100%}
+pre code{background:none;padding:0;font-size:inherit;color:inherit}
+.hljs-comment{color:var(--code-dim);font-style:italic}
+.hljs-keyword,.hljs-literal{color:var(--code-key)}
+.hljs-string{color:var(--code-str)}
+.hljs-symbol,.hljs-number{color:var(--code-sym)}
+.hljs-title,.hljs-built_in,.hljs-type{color:var(--code-title)}
+.note{font-size:.93rem;color:var(--ink-soft);border-left:3px solid var(--line);padding-left:12px}
+
+/* ---------- Hero ---------- */
+.hero{display:flex;flex-direction:column;gap:18px;padding-top:12px}
+.hero h1{font-size:clamp(2.6rem,8vw,4.6rem);font-weight:800;letter-spacing:-.025em;display:flex;flex-wrap:wrap;align-items:baseline;gap:.15em .35em}
+.hero h1 .hand{font-family:var(--f-hand);font-weight:700;color:var(--ruby);font-size:.62em;letter-spacing:0;transform:rotate(-3deg);display:inline-block}
+.hero .lede{font-size:clamp(1.15rem,2.4vw,1.4rem);max-width:40ch;line-height:1.45}
+.facts{display:flex;flex-wrap:wrap;gap:8px}
+.facts span{font:600 .8rem/1 var(--f-mono);background:var(--surface);border:1px solid var(--line);padding:7px 10px;border-radius:999px;color:var(--ink-soft)}
+.toc{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.95rem}
+.toc a{color:var(--ink);text-decoration-color:var(--line)}
+
+/* ---------- Cubitos (bloques) ---------- */
+.cube{--k:var(--blue);--ks:var(--blue-soft);
+  position:relative;background:var(--surface);border:2px solid var(--k);border-radius:12px;
+  box-shadow:0 5px 0 var(--k);padding:12px 12px 14px;display:flex;flex-direction:column;gap:4px;min-width:0;
+  transition:background-color .3s,opacity .3s,transform .3s}
+.cube[data-kind="atomic"]{--k:var(--blue);--ks:var(--blue-soft)}
+.cube[data-kind="pivot"]{--k:var(--amber);--ks:var(--amber-soft)}
+.cube[data-kind="retry"]{--k:var(--green);--ks:var(--green-soft)}
+.cube-num{font:600 .72rem/1 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft)}
+.cube-name{font:700 1.02rem/1.2 var(--f-display)}
+.cube-tag{font-size:.78rem;color:var(--k);font-weight:700}
+.cube-tag .atom{color:var(--violet)}
+.cube-state{margin-top:6px;font-size:.84rem;font-weight:700;color:var(--ink-soft)}
+.cube[data-state="pending"]{opacity:.72}
+.cube[data-state="running"]{background:var(--ks);transform:translateY(-3px);animation:pulse 1.2s ease-in-out infinite}
+.cube[data-state="done"],.cube[data-state="skipped"]{background:var(--ks)}
+.cube[data-state="done"] .cube-state,.cube[data-state="skipped"] .cube-state{color:var(--k)}
+.cube[data-state="failed"]{border-color:var(--ruby);box-shadow:0 5px 0 var(--ruby);background:var(--ruby-soft)}
+.cube[data-state="failed"] .cube-state{color:var(--ruby)}
+.cube[data-state="undone"]{opacity:.8;background:repeating-linear-gradient(135deg,var(--surface) 0 8px,var(--sunken) 8px 16px)}
+.cube[data-state="undone"] .cube-name{text-decoration:line-through;text-decoration-thickness:2px}
+.cube[data-state="retrying"]{border-style:dashed;background:var(--green-soft)}
+.cube[data-state="retrying"] .cube-state{color:var(--green)}
+@keyframes pulse{50%{box-shadow:0 5px 0 var(--k),0 0 0 6px color-mix(in srgb,var(--k) 22%,transparent)}}
+
+/* ---------- Simulador ---------- */
+.sim{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:16px;position:relative;overflow:hidden}
+.sim::after{content:"";position:absolute;inset:0;background:var(--ruby);opacity:0;pointer-events:none}
+.sim.is-crash::after{animation:crashflash .7s ease-out}
+@keyframes crashflash{0%{opacity:.28}100%{opacity:0}}
+.scenarios{display:flex;flex-wrap:wrap;gap:8px}
+.scenarios button{font:700 .88rem/1.2 var(--f-body);color:var(--ink);background:var(--sunken);border:1px solid var(--line);border-radius:999px;padding:8px 13px;cursor:pointer}
+.scenarios button[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.narration{font:500 1.12rem/1.45 var(--f-display);min-height:3.2em;padding:12px 14px;background:var(--sunken);border-radius:10px;border:1px solid var(--line)}
+.track{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding-bottom:6px}
+.panels{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.5fr) minmax(0,.9fr);gap:12px}
+.panel{border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;min-width:0;background:var(--surface)}
+.panel h3{font-size:.95rem;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.panel .sub{font-size:.8rem;color:var(--ink-soft);font-weight:400;font-family:var(--f-body)}
+.pill{font:700 .78rem/1 var(--f-body);padding:6px 9px;border-radius:999px;background:var(--chip);color:var(--ink-soft);align-self:flex-start}
+.pill[data-st="working"]{background:var(--blue-soft);color:var(--blue)}
+.pill[data-st="dead"]{background:var(--ruby-soft);color:var(--ruby)}
+.pill[data-st="waiting"]{background:var(--amber-soft);color:var(--amber)}
+.pill[data-st="done"]{background:var(--green-soft);color:var(--green)}
+.pill[data-st="compensated"]{background:var(--violet-soft);color:var(--violet)}
+.mem{font-size:.92rem}
+.worker-n{font:600 .8rem/1 var(--f-mono);color:var(--ink-soft)}
+.notebook{background:var(--surface);background-image:linear-gradient(90deg,transparent 30px,var(--margin) 30px,var(--margin) 32px,transparent 32px),repeating-linear-gradient(var(--surface) 0 31px,var(--rule) 31px 32px)}
+.nb-rows{display:flex;flex-direction:column}
+.nb-row{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:4px 14px;align-items:baseline;padding:4px 0 4px 0;min-height:32px}
+.nb-mark{font:700 1.1rem/1 var(--f-hand);text-align:center}
+.nb-key{font:600 .78rem/1.3 var(--f-mono);overflow-wrap:anywhere}
+.nb-key small{display:block;font-weight:400;color:var(--ink-soft)}
+.nb-res{font:400 1rem/1.2 var(--f-hand);color:var(--blue);text-align:right;overflow-wrap:anywhere}
+.nb-row[data-st="failed"] .nb-mark,.nb-row[data-st="failed"] .nb-res{color:var(--ruby)}
+.nb-row[data-st="undone"] .nb-mark,.nb-row[data-st="undone"] .nb-res{color:var(--violet)}
+.nb-row[data-st="retry"] .nb-mark,.nb-row[data-st="retry"] .nb-res{color:var(--green)}
+.nb-row[data-st="done"] .nb-mark{color:var(--green)}
+.nb-head{font:400 .95rem/1.2 var(--f-hand);color:var(--ink-soft);padding-left:40px}
+.world{display:flex;flex-direction:column;gap:6px;margin:0;padding:0}
+.world div{display:flex;justify-content:space-between;gap:10px;font-size:.9rem}
+.world dt{color:var(--ink-soft)}
+.world dd{margin:0;font:700 1rem/1 var(--f-mono);font-variant-numeric:tabular-nums}
+.world-note{font-size:.82rem;color:var(--green);font-weight:700}
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.controls button{font:700 .92rem/1 var(--f-body);border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:10px 14px;cursor:pointer}
+.controls button.primary{background:var(--ruby);border-color:var(--ruby);color:#fff;min-width:9.5em}
+.controls button:disabled{opacity:.45;cursor:default}
+.progress{margin-left:auto;font:600 .82rem/1 var(--f-mono);color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:.88rem;color:var(--ink-soft)}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.legend i{width:14px;height:14px;border-radius:4px;border:2px solid var(--c);background:var(--cs);display:inline-block}
+
+/* ---------- Lista de cubitos ---------- */
+.lessons{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:44px;counter-reset:lesson}
+.lesson{display:grid;grid-template-columns:56px minmax(0,1fr);gap:18px}
+.lesson-num{width:52px;height:52px;border-radius:12px;background:var(--surface);border:2px solid var(--ink);box-shadow:0 5px 0 var(--ink);display:grid;place-items:center;font:800 1.35rem/1 var(--f-display)}
+.lesson.is-new .lesson-num{border-color:var(--ruby);box-shadow:0 5px 0 var(--ruby);color:var(--ruby)}
+.lesson-body{display:flex;flex-direction:column;gap:12px;min-width:0;max-width:68ch}
+.badge-new{font:700 .72rem/1 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ruby);background:var(--ruby-soft);padding:5px 8px;border-radius:6px;align-self:flex-start}
+.rule{background:var(--surface);border:2px solid var(--ink);border-radius:12px;padding:12px 14px;font-weight:700}
+.rule span{display:block;font:600 .72rem/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ruby);margin-bottom:6px}
+
+/* mini diagramas */
+.mini-track{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px}
+.mini-track .cube{padding:9px 10px 11px}
+.mini-track .cube-name{font-size:.92rem}
+.split{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.box{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:10px 12px;font-size:.93rem;display:flex;flex-direction:column;gap:4px}
+.box b{font-family:var(--f-display)}
+.box.ok{border-color:var(--green)}
+.box.no{border-color:var(--ruby)}
+.seq{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font:600 .85rem/1 var(--f-mono)}
+.seq .t{padding:7px 9px;border-radius:7px;background:var(--chip)}
+.seq .t.ok{background:var(--green-soft);color:var(--green)}
+.seq .t.skip{background:var(--blue-soft);color:var(--blue)}
+.seq .t.bad{background:var(--ruby-soft);color:var(--ruby)}
+.seq .t.undo{background:var(--violet-soft);color:var(--violet)}
+.seq .lbl{min-width:8.5em;font-family:var(--f-body);font-weight:700;color:var(--ink-soft)}
+.commit{border:2px dashed var(--violet);border-radius:12px;padding:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--violet-soft)}
+.commit .tag{font:700 .75rem/1 var(--f-mono);color:var(--violet);letter-spacing:.06em;width:100%}
+.commit .t{background:var(--surface);border-radius:8px;padding:8px 10px;font-weight:700;font-size:.92rem}
+.pivot-band{display:grid;grid-template-columns:1fr 1fr auto 1fr;gap:8px;align-items:stretch}
+.pivot-band div{border-radius:10px;padding:10px;font-size:.85rem;font-weight:700;text-align:center;display:flex;flex-direction:column;justify-content:center;gap:3px}
+.pivot-band .u{background:var(--blue-soft);color:var(--blue)}
+.pivot-band .p{background:var(--amber-soft);color:var(--amber);border:2px solid var(--amber)}
+.pivot-band .r{background:var(--green-soft);color:var(--green)}
+.pivot-band small{font-weight:400;color:var(--ink-soft)}
+
+/* ---------- Tablas ---------- */
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.93rem;min-width:620px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:700 .8rem/1.2 var(--f-display);text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);background:var(--sunken)}
+tr:last-child td{border-bottom:0}
+td.us{background:var(--blue-soft);font-weight:700}
+.yes{color:var(--green);font-weight:700}
+.no{color:var(--ruby);font-weight:700}
+
+/* ---------- Rust ---------- */
+.kitchen{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.kitchen .box{padding:14px}
+.kitchen .box b{font-size:1.05rem}
+
+/* ---------- Plan ---------- */
+.plan{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.plan .box{padding:14px 16px;gap:8px}
+.plan .box.now{border:2px solid var(--ruby)}
+.plan ul{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:4px}
+.steps{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:10px;max-width:68ch}
+.sources{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:6px;font-size:.93rem}
+
+@media (max-width:820px){
+  .panels{grid-template-columns:minmax(0,1fr)}
+  .track{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:520px){
+  body{font-size:16px}
+  .lesson{grid-template-columns:minmax(0,1fr);gap:12px}
+  .pivot-band{grid-template-columns:1fr}
+  .progress{margin-left:0;width:100%}
+  .controls button.primary{min-width:0}
+  .sim{padding:14px}
+}
+@media (prefers-reduced-motion: reduce){
+  *{animation:none!important;transition:none!important}
+}
+</style>
+
+<div class="page">
+
+<header class="hero">
+  <p class="eyebrow">Gema para Ruby on Rails · diseño v0.1 · 5 de octubre de 2026</p>
+  <h1>ActiveDurable <span class="hand">en cubitos</span></h1>
+  <p class="lede">Si una compra falla a la mitad, ActiveDurable termina el trabajo o lo deshace en orden. Aunque el servidor se apague.</p>
+  <div class="facts"><span>Ruby puro</span><span>PostgreSQL</span><span>Rails 7.1+</span><span>Sin Redis</span><span>Sin servidores extra</span></div>
+  <nav class="toc" aria-label="Contenido">
+    <a href="#simulador">Simulador</a><a href="#cubitos">Los cubitos</a><a href="#codigo">El código</a><a href="#probador">Cómo se prueba</a><a href="#cambios">Qué cambió</a><a href="#rust">¿Y Rust?</a><a href="#competencia">Competencia</a><a href="#plan">Plan</a><a href="#manos">Manos a la obra</a>
+  </nav>
+</header>
+
+<section id="simulador" class="prose" style="max-width:none;gap:18px">
+  <div class="section-head">
+    <p class="eyebrow">Pruébalo</p>
+    <h2>Una compra de 4 pasos</h2>
+    <p class="lead">Elige qué sale mal y pulsa Reproducir. Mira tres cosas: los cubitos, el cuaderno (que vive en tu base de datos) y cuántas veces se tocó el mundo de fuera.</p>
+  </div>
+  <div class="legend" aria-label="Tipos de paso">
+    <span><i style="--c:var(--blue);--cs:var(--blue-soft)"></i>Se puede deshacer</span>
+    <span><i style="--c:var(--amber);--cs:var(--amber-soft)"></i>Punto de no retorno</span>
+    <span><i style="--c:var(--green);--cs:var(--green-soft)"></i>Se reintenta</span>
+  </div>
+
+  <div class="sim" id="sim">
+    <div class="scenarios" id="scenarios" role="group" aria-label="Escenarios"></div>
+    <p class="narration" id="narration" aria-live="polite"></p>
+    <div class="track" id="track"></div>
+    <div class="panels">
+      <div class="panel">
+        <h3>Trabajador <span class="worker-n" id="worker-n">#1</span></h3>
+        <span class="pill" id="worker-pill" data-st="idle">Esperando trabajo</span>
+        <p class="mem" id="worker-mem">Memoria: vacía</p>
+        <p class="sub">Lo que el trabajador recuerda se pierde si el servidor se apaga.</p>
+      </div>
+      <div class="panel notebook">
+        <h3>Cuaderno <span class="sub">tabla en tu base de datos</span></h3>
+        <p class="nb-head" id="nb-head">Nota de inicio: —</p>
+        <div class="nb-rows" id="nb-rows"></div>
+      </div>
+      <div class="panel">
+        <h3>Mundo de fuera</h3>
+        <dl class="world">
+          <div><dt>Cobros en Stripe</dt><dd id="w-cobros">0</dd></div>
+          <div><dt>Reembolsos</dt><dd id="w-reembolsos">0</dd></div>
+          <div><dt>Stock apartado</dt><dd id="w-stock">0</dd></div>
+          <div><dt>Paquetes enviados</dt><dd id="w-paquetes">0</dd></div>
+          <div><dt>Emails enviados</dt><dd id="w-emails">0</dd></div>
+        </dl>
+        <p class="world-note" id="w-note"></p>
+      </div>
+    </div>
+    <div class="controls">
+      <button type="button" id="b-prev">◀ Atrás</button>
+      <button type="button" id="b-play" class="primary">▶ Reproducir</button>
+      <button type="button" id="b-next">Siguiente ▶</button>
+      <button type="button" id="b-reset">↺ Reiniciar</button>
+      <span class="progress" id="progress"></span>
+    </div>
+  </div>
+</section>
+
+<section id="cubitos" style="display:flex;flex-direction:column;gap:32px">
+  <div class="section-head">
+    <p class="eyebrow">Los cubitos, uno por uno</p>
+    <h2>Cada cubito se apoya en el anterior</h2>
+    <p class="lead">Léelos en orden. Los marcados en rojo son las dos mejoras nuevas que encontré al investigar.</p>
+  </div>
+
+  <ol class="lessons">
+    <li class="lesson">
+      <div class="lesson-num" aria-hidden="true">1</div>
+      <div class="lesson-body">
+        <h3>El problema</h3>
+        <p>Una compra no es una sola cosa. Son varios pasos, y casi todos hablan con alguien de fuera: el banco, la paquetería, el correo. Rails sabe deshacer cambios en tu base de datos con <code>ROLLBACK</code>, pero no puede pedirle a Stripe que olvide un cobro.</p>
+        <div class="split">
+          <div class="box ok"><b>ROLLBACK sí llega aquí</b>Tus tablas: pedidos, stock, usuarios.</div>
+          <div class="box no"><b>ROLLBACK no llega aquí</b>Stripe, la paquetería, el servidor de correo, el banco.</div>
+        </div>
+      </div>
+    </li>
+
+    <li class="lesson">
+      <div class="lesson-num" aria-hidden="true">2</div>
+      <div class="lesson-body">
+        <h3>La receta tiene nombre</h3>
+        <p>Si el servidor se apaga, otro trabajador tiene que continuar, y para eso necesita encontrar la receta. Por eso la saga se define una vez con un nombre y se inicia por ese nombre. Un bloque escrito dentro de un controlador vive en la memoria de ese proceso y muere con él.</p>
+<pre><code class="language-ruby"># app/sagas/checkout.rb: se define una vez
+Durable.define :checkout do |flow, order_id:|
+  # pasos...
+end
+
+# en cualquier parte: se inicia por nombre
+Durable.start :checkout, order_id: 7</code></pre>
+        <p class="note">Esto corrige el <code>Durable.run</code> en línea de la versión de Gemini: ese bloque no se podía retomar después de un apagón. Sigue sin hacer falta crear clases.</p>
+      </div>
+    </li>
+
+    <li class="lesson">
+      <div class="lesson-num" aria-hidden="true">3</div>
+      <div class="lesson-body">
+        <h3>El cuaderno</h3>
+        <p>Cada paso terminado se anota en una tabla de tu base de datos: qué paso fue, si salió bien y qué devolvió.</p>
+        <p>Un truco importante: el resultado de un paso siempre se lee del cuaderno, también la primera vez. Así la primera ejecución y una relectura se comportan igual, y lo que funciona en tus pruebas también funciona después de un apagón.</p>
+        <div class="panel notebook" style="max-width:520px">
+          <div class="nb-rows">
+            <div class="nb-row" data-st="done"><span class="nb-mark">✔</span><span class="nb-key">reservar_stock</span><span class="nb-res">{"reservado": true}</span></div>
+            <div class="nb-row" data-st="done"><span class="nb-mark">✔</span><span class="nb-key">cobrar</span><span class="nb-res">{"id": "pi_381"}</span></div>
+            <div class="nb-row"><span class="nb-mark">—</span><span class="nb-key">despachar</span><span class="nb-res"></span></div>
+          </div>
+        </div>
+        <p class="note">Por eso los resultados usan llaves de texto: <code>pago["id"]</code>, no <code>pago[:id]</code>. El cuaderno guarda JSON, y el JSON no conoce los símbolos de Ruby.</p>
+      </div>
+    </li>
+
+    <li class="lesson">
+      <div class="lesson-num" aria-hidden="true">4</div>
+      <div class="lesson-body">
+        <h3>El apagón y la relectura</h3>
+        <p>Cuando un trabajador nuevo retoma una saga, vuelve a correr la receta desde arriba. En cada paso mira el cuaderno: si ya tiene ✔, no lo ejecuta y usa el resultado anotado. Continúa en el primer paso sin ✔.</p>
+        <div class="box" style="gap:10px">
+          <div class="seq"><span class="lbl">Trabajador #1</span><span class="t ok">1 ✔</span><span class="t ok">2 ✔</span><span class="t bad">apagón</span></div>
+          <div class="seq"><span class="lbl">Trabajador #2</span><span class="t skip">1 saltado</span><span class="t skip">2 saltado</span><span class="t ok">3 ✔</span><span class="t ok">4 ✔</span></div>
+        </div>
+        <div class="rule"><span>Regla de oro</span>Todo lo que toca el mundo va dentro de un paso. Lo que queda fuera se ejecuta otra vez en cada relectura: leer está bien; escribir, cobrar o enviar, no.</div>
+      </div>
+    </li>
+
+    <li class="lesson">
+      <div class="lesson-num" aria-hidden="true">5</div>
+      <div class="lesson-body">
+        <h3>El número de ticket</h3>
+        <p>Queda un hueco peligroso: el trabajador llamó a Stripe, Stripe cobró, y el servidor se apagó antes de anotar ✔. Al releer, ese paso no tiene ✔ y se ejecuta otra vez.</p>
+        <p>Para eso cada paso recibe un ticket que siempre es el mismo, por ejemplo <code>checkout-7:cobrar</code>. Se lo pasas a Stripe como <code>idempotency_key</code> en las opciones de la petición, y Stripe responde «ya cobré con ese ticket» en lugar de cobrar otra vez.</p>
+<pre><code class="language-ruby">flow.step :cobrar do |ticket|
+  intent = Stripe::PaymentIntent.create(
+    { amount: order.total_cents, currency: "mxn",
+      customer: order.user.stripe_id, confirm: true },
+    { idempotency_key: ticket }   # opciones de la petición, no parámetros
+  )
+  { "id" => intent.id }
+end</code></pre>
+        <p class="note">El ticket solo protege si el servicio de fuera lo entiende. Stripe lo hace; si otro servicio no, ese paso podría repetirse. El escenario «Apagón en el peor momento» del simulador muestra este caso.</p>
+      </div>
+    </li>
+
+    <li class="lesson">
+      <div class="lesson-num" aria-hidden="true">6</div>
+      <div class="lesson-body">
+        <h3>Deshacer en reversa</h3>
+        <p>Si un paso falla y no tiene arreglo, la saga deshace lo que ya hizo, empezando por lo último, como cuando desapilas cubitos: el de arriba sale primero. Cada paso declara cómo se deshace con <code>undo:</code>.</p>
+        <div class="box" style="gap:10px">
+          <div class="seq"><span class="lbl">Ida</span><span class="t ok">1 Reservar</span><span class="t ok">2 Cobrar</span><span class="t bad">3 Despachar ✖</span></div>
+          <div class="seq"><span class="lbl">Vuelta</span><span class="t undo">2 Reembolsar</span><span class="t undo">1 Liberar stock</span></div>
+        </div>
+        <p class="note">Deshacer también lleva su propio ticket, porque el servidor puede apagarse a mitad de un reembolso. Si tu <code>undo</code> recibe un segundo parámetro, la gema le pasa ese ticket: <code>checkout-7:cobrar:undo</code>.</p>
+      </div>
+    </li>
+
+    <li class="lesson is-new">
+      <div class="lesson-num" aria-hidden="true">7</div>
+      <div class="lesson-body">
+        <span class="badge-new">Mejora nueva</span>
+        <h3>El paso atómico: exactamente una vez</h3>
+        <p>Cuando un paso solo toca tu propia base de datos (apartar stock, cambiar el estado de un pedido), se puede hacer algo mejor que el ticket: ejecutar el paso y anotar el ✔ dentro de la misma transacción. O pasan las dos cosas o ninguna, así que el paso ocurre exactamente una vez, aunque el servidor se apague en el peor momento.</p>
+        <div class="commit">
+          <span class="tag">UN SOLO COMMIT</span>
+          <span class="t">stock − 1</span><span class="t">pedido: reservado</span><span class="t">cuaderno: ✔ reservar_stock</span>
+        </div>
+<pre><code class="language-ruby">flow.transaction :reservar_stock,
+  undo: ->(_resultado) { order.release_stock! } do
+  order.reserve_stock!
+  { "reservado" => true }
+end</code></pre>
+        <p class="note">La idea viene de <a href="https://docs.dbos.dev/python/tutorials/transaction-tutorial">DBOS</a>, una librería de ejecución durable para Python y TypeScript que hace esto sobre Postgres. Solo sirve para pasos que tocan la misma base de datos donde está el cuaderno.</p>
+      </div>
+    </li>
+
+    <li class="lesson is-new">
+      <div class="lesson-num" aria-hidden="true">8</div>
+      <div class="lesson-body">
+        <span class="badge-new">Mejora nueva</span>
+        <h3>El punto de no retorno</h3>
+        <p>Algunos pasos no se pueden deshacer: un paquete que ya salió, una transferencia SPEI ya enviada. En la teoría de sagas se llama <em>paso pivote</em>. Antes del pivote, si un paso falla sin arreglo (después de sus reintentos), se deshace todo. Después del pivote ya no tiene sentido deshacer: los pasos que siguen se reintentan hasta lograrlo.</p>
+        <div class="pivot-band">
+          <div class="u">Reservar<small>se deshace</small></div>
+          <div class="u">Cobrar<small>se deshace</small></div>
+          <div class="p">Despachar<small>no retorno</small></div>
+          <div class="r">Email<small>se reintenta</small></div>
+        </div>
+<pre><code class="language-ruby">flow.pivot :despachar do |ticket|
+  envio = Carrier.ship(order.id, reference: ticket)
+  { "guia" => envio.tracking_number }
+end</code></pre>
+        <p class="note">Un email que falló no justifica devolver el dinero de un paquete que ya va en camino. Esto reemplaza la «compensación legal» que Gemini inventó para SPEI. Fuente: <a href="https://learn.microsoft.com/en-us/azure/architecture/patterns/saga">patrón Saga en Azure Architecture Center</a>.</p>
+      </div>
+    </li>
+
+    <li class="lesson">
+      <div class="lesson-num" aria-hidden="true">9</div>
+      <div class="lesson-body">
+        <h3>Dormir y esperar</h3>
+        <p>Para esperar 3 días, el trabajador no se queda despierto. Anota en el cuaderno «despiértame el 8 de octubre», termina y libera todo. Ese día, un trabajador relee la saga (cubito 4), salta lo hecho y sigue.</p>
+        <p>Esperar un evento de fuera funciona igual. Por ejemplo, la confirmación de identidad de un proveedor: la saga duerme hasta que tu webhook avisa con <code>Durable.signal</code>.</p>
+<pre><code class="language-ruby">flow.sleep :esperar_entrega, 3.days
+kyc = flow.wait_for :kyc_listo, timeout: 2.hours
+
+# en el controlador del webhook
+Durable.signal "prestamo-42", :kyc_listo, "verificado" => true</code></pre>
+        <p class="note">Una saga dormida no ocupa memoria: es una fila en la tabla. Por eso no hacen falta las Fibers que proponía Gemini.</p>
+      </div>
+    </li>
+
+    <li class="lesson">
+      <div class="lesson-num" aria-hidden="true">10</div>
+      <div class="lesson-body">
+        <h3>El buzón</h3>
+        <p><code>Durable.start</code> escribe en tu base de datos la nota «empezar esta saga». Si lo llamas dentro de la transacción donde creas el pedido, los dos se guardan en el mismo COMMIT: o existen ambos, o ninguno. Después del COMMIT se encola el trabajo.</p>
+        <p>Si el servidor se apaga justo entre el COMMIT y el encolado, un barrendero que pasa cada minuto encuentra la nota sin trabajador y la encola.</p>
+<pre><code class="language-ruby">Order.transaction do
+  order = Order.create!(order_params)
+  Durable.start :checkout, order_id: order.id
+end</code></pre>
+        <p class="note">El buzón es la propia fila de la saga. No hace falta una tabla aparte.</p>
+      </div>
+    </li>
+
+    <li class="lesson">
+      <div class="lesson-num" aria-hidden="true">11</div>
+      <div class="lesson-body">
+        <h3>La alarma de receta cambiada</h3>
+        <p>Si cambias la receta mientras hay sagas a medio camino (por ejemplo, insertas un paso nuevo entre cobrar y despachar), la relectura ya no coincide con el cuaderno. En lugar de adivinar, la gema se detiene con un mensaje claro:</p>
+<pre><code>ActiveDurable::RecipeChanged: la saga checkout-7 esperaba el paso
+:despachar y encontró :verificar_direccion</code></pre>
+        <p class="note">Es la versión honesta de los «Fuzzy Checkpoints» de Gemini: primero detectar el problema. Más adelante se puede añadir versionado de recetas.</p>
+      </div>
+    </li>
+  </ol>
+</section>
+
+<section id="codigo" class="prose">
+  <p class="eyebrow">Todo junto</p>
+  <h2>El checkout completo</h2>
+  <p>Así se vería la receta del simulador con todos los cubitos. Los números en los comentarios remiten a cada cubito.</p>
+<pre><code class="language-ruby"># app/sagas/checkout.rb
+Durable.define :checkout do |flow, order_id:|          # 2: receta con nombre
+  order = Order.find(order_id)                          # 4: solo lee; se repite en cada relectura
+
+  flow.transaction :reservar_stock,                     # 7: atómico, exactamente una vez
+    undo: ->(_r) { order.release_stock! } do            # 6: cómo se deshace
+    order.reserve_stock!
+    { "reservado" => true }
+  end
+
+  flow.step :cobrar,
+    undo: ->(pago, ticket) {                            # 6: deshacer, con su propio ticket
+      Stripe::Refund.create({ payment_intent: pago["id"] }, { idempotency_key: ticket })
+    } do |ticket|
+    intent = Stripe::PaymentIntent.create(
+      { amount: order.total_cents, currency: "mxn",
+        customer: order.user.stripe_id, confirm: true },
+      { idempotency_key: ticket }                       # 5: el ticket
+    )
+    { "id" => intent.id }                               # 3: guarda solo lo que necesitas
+  end
+
+  flow.pivot :despachar do |ticket|                     # 8: punto de no retorno
+    envio = Carrier.ship(order.id, reference: ticket)
+    { "guia" => envio.tracking_number }
+  end
+
+  flow.step :email_confirmacion do                      # 8: después del pivote, se reintenta
+    OrderMailer.shipped(order.id).deliver_now
+    { "enviado" => true }
+  end
+
+  flow.sleep :esperar_entrega, 3.days                   # 9: duerme sin ocupar memoria
+
+  flow.step :pedir_resena do
+    ReviewMailer.ask(order.id).deliver_now
+    { "enviado" => true }
+  end
+end
+
+# app/controllers/checkouts_controller.rb
+def create
+  Order.transaction do                                  # 10: el buzón
+    @order = Order.create!(order_params)
+    Durable.start :checkout, order_id: @order.id
+  end
+  render json: { id: @order.id, estado: "procesando" }
+end</code></pre>
+</section>
+
+<section id="probador" class="prose">
+  <p class="eyebrow">Cómo sabremos que funciona</p>
+  <h2>El probador de apagones</h2>
+  <p>Probar una saga una sola vez no demuestra nada: los errores aparecen cuando el servidor se apaga en un momento concreto. Por eso la gema traerá un ayudante de pruebas que corre la saga una vez por cada punto donde podría apagarse: antes de cada paso, después de llamar afuera pero antes de anotar, y después de anotar. Al final de cada corrida revisa que nada se haya hecho dos veces y que la saga haya terminado completa o deshecha por completo.</p>
+<pre><code class="language-ruby">it "sobrevive a un apagón en cualquier punto" do
+  ActiveDurable::Testing.crash_everywhere(:checkout, order_id: order.id) do |saga|
+    expect(FakeStripe.cobros_por_ticket.values).to all(eq 1)
+    expect(saga.estado).to eq("completada").or eq("deshecha")
+  end
+end</code></pre>
+  <p class="note">Esto también es lo que más vende una gema así: el usuario puede demostrar con sus propias pruebas que su saga aguanta apagones.</p>
+</section>
+
+<section id="cambios" style="display:flex;flex-direction:column;gap:18px">
+  <div class="section-head">
+    <p class="eyebrow">Respecto a la versión de Gemini</p>
+    <h2>Qué cambió y por qué</h2>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Gemini decía</th><th>Ahora</th><th>Por qué</th></tr></thead>
+      <tbody>
+        <tr><td><code>Durable.run</code> en línea, dentro del controlador</td><td><code>Durable.define</code> con nombre + <code>Durable.start</code></td><td>Después de un apagón, otro trabajador tiene que encontrar la receta.</td></tr>
+        <tr><td>Fibers dormidas durante días</td><td>Nota «despiértame» en el cuaderno</td><td>Una Fiber no sobrevive a un apagón ni se puede guardar en la base de datos.</td></tr>
+        <tr><td>«Cero cobros duplicados»</td><td>Ticket por paso + paso atómico</td><td>El hueco entre llamar afuera y anotar existe; hay que cubrirlo a propósito.</td></tr>
+        <tr><td>«Compensación legal» para SPEI</td><td>Punto de no retorno</td><td>Hay pasos que no se deshacen; después de ellos se reintenta.</td></tr>
+        <tr><td>Fuzzy Checkpoints con xxHash3</td><td>Alarma de receta cambiada</td><td>Un hash solo dice «cambió», no si el cambio es compatible.</td></tr>
+        <tr><td>Rust para hashear y validar JSON</td><td>Ruby puro</td><td>Esta gema pasa el tiempo esperando, no calculando (ver ¿Y Rust?).</td></tr>
+        <tr><td>PostgreSQL, MySQL y SQLite desde el inicio</td><td>Solo PostgreSQL en v0.1</td><td>Primero que funcione muy bien en una base de datos.</td></tr>
+        <tr><td>«Job fantasma» como argumento principal</td><td>El argumento es el apagón entre COMMIT y encolado</td><td>Rails ya puede encolar después del COMMIT, y en edge (la futura 8.2) lo hará por defecto.</td></tr>
+        <tr><td>3 tablas, una de ellas el Outbox</td><td>3 tablas: sagas, cuaderno y señales</td><td>El buzón es la propia fila de la saga; las señales guardan eventos que llegan antes de tiempo.</td></tr>
+        <tr><td>Time-Travel desde la consola</td><td>«Volver a correr desde el paso N» (v0.2)</td><td>Como el <em>fork</em> de DBOS: copia el cuaderno hasta el paso N y sigue desde ahí.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="rust" style="display:flex;flex-direction:column;gap:18px">
+  <div class="section-head">
+    <p class="eyebrow">La pregunta de Rust</p>
+    <h2>¿Y Rust?</h2>
+    <p class="lead">Respuesta corta: no en esta gema. Sí en una segunda gema donde Rust sea la razón de existir.</p>
+  </div>
+  <div class="kitchen">
+    <div class="box"><b>Ruby</b>Una cocina con una estufa. Alcanza para casi todo lo que hace una app Rails.</div>
+    <div class="box"><b>Rust</b>Un horno industrial. Vale la pena si vas a hornear mucho pan: cálculo pesado, mucha memoria, millones de operaciones.</div>
+    <div class="box"><b>ActiveDurable</b>Pasa casi todo el tiempo esperando entregas: la respuesta de Stripe, la de la base de datos. Casi no hornea.</div>
+  </div>
+  <div class="prose">
+    <p><strong>Para tu carrera:</strong> en una entrevista te van a preguntar «¿por qué Rust?». Si la respuesta es «porque quería», resta. Si es «medí, aquí está el benchmark, es 20 veces más rápido», suma mucho.</p>
+    <p><strong>El caso real:</strong> el <a href="https://github.com/temporalio/sdk-ruby">SDK oficial de Temporal para Ruby</a> sí usa Rust, con Magnus y rb-sys, como proponía Gemini. Lo hace para compartir el mismo motor con sus SDK de otros lenguajes, no por velocidad.</p>
+    <p><strong>El plan:</strong> buscar 3 o 4 ideas de gema donde Rust sea indispensable y verificar que no existan ya. Una idea ya quedó descartada: Bloom filters, porque <code>bloom_fit</code> ya existe, es nativa y tiene más de un millón de descargas.</p>
+    <p class="note">Lo que te hace mantenedor de gemas no cambia con el lenguaje: publicar, versionar, escribir el changelog, mantener la CI verde y responder issues. Eso lo vas a practicar desde ActiveDurable.</p>
+  </div>
+</section>
+
+<section id="competencia" style="display:flex;flex-direction:column;gap:18px">
+  <div class="section-head">
+    <p class="eyebrow">Quién más hace esto</p>
+    <h2>Dónde encaja ActiveDurable</h2>
+    <p class="lead">El hueco: sagas que deshacen pasos y viven en tu propia base de datos, sin nada extra que instalar.</p>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Herramienta</th><th>Guarda el progreso en</th><th>Deshace pasos</th><th>Necesita</th></tr></thead>
+      <tbody>
+        <tr><td>Active Job Continuations (Rails 8.1)</td><td>El propio job (un cursor)</td><td class="no">No</td><td>Nada extra</td></tr>
+        <tr><td><a href="https://github.com/radioactive-labs/chrono_forge">ChronoForge</a></td><td>Tu base de datos</td><td class="no">No lo menciona su README</td><td>Nada extra</td></tr>
+        <tr><td>ruby_reactor</td><td>Redis</td><td class="yes">Sí</td><td>Redis y Sidekiq</td></tr>
+        <tr><td>Temporal (SDK Ruby)</td><td>Servidor de Temporal</td><td>Lo programas a mano</td><td>Servidor de Temporal</td></tr>
+        <tr><td class="us">ActiveDurable</td><td class="us">Tu base de datos</td><td class="us"><span class="yes">Sí</span>, en reversa y con punto de no retorno</td><td class="us">Nada extra</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note" style="max-width:68ch">ChronoForge es el competidor más cercano: también guarda el progreso en tu base de datos y ya tiene esperas, eventos, ramas en paralelo y dashboard. Gemini no lo mencionó. Conviene leer su código antes de empezar.</p>
+</section>
+
+<section id="plan" style="display:flex;flex-direction:column;gap:18px">
+  <div class="section-head">
+    <p class="eyebrow">Por fases</p>
+    <h2>El plan</h2>
+  </div>
+  <div class="plan">
+    <div class="box now">
+      <b>v0.1 · Que no se pierda nada</b>
+      <ul>
+        <li><code>Durable.define</code> y <code>Durable.start</code></li>
+        <li>El cuaderno y la relectura</li>
+        <li><code>flow.step</code>, <code>flow.transaction</code> y <code>flow.pivot</code></li>
+        <li>Ticket por paso</li>
+        <li>Deshacer en reversa; reintentos después del pivote</li>
+        <li><code>flow.sleep</code>, <code>flow.wait_for</code> y <code>Durable.signal</code></li>
+        <li>Buzón y barrendero</li>
+        <li>Alarma de receta cambiada</li>
+        <li>Probador de apagones</li>
+        <li>Solo PostgreSQL</li>
+      </ul>
+    </div>
+    <div class="box">
+      <b>v0.2 · Verlo y operarlo</b>
+      <ul>
+        <li>Dashboard mínimo: lista de sagas y su cuaderno</li>
+        <li>Botones de reintentar y deshacer</li>
+        <li>Volver a correr desde el paso N</li>
+        <li>Eventos con <code>ActiveSupport::Notifications</code></li>
+      </ul>
+    </div>
+    <div class="box">
+      <b>Después</b>
+      <ul>
+        <li>MySQL y SQLite</li>
+        <li>Versionado de recetas</li>
+        <li>Pasos en paralelo</li>
+        <li>OpenTelemetry</li>
+        <li>La gema de Rust, por separado</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="manos" class="prose">
+  <p class="eyebrow">Siguiente paso</p>
+  <h2>Manos a la obra</h2>
+  <p>La primera sesión de trabajo, en orden. Cada paso termina con algo que se puede ejecutar.</p>
+  <ol class="steps">
+    <li>Crear el esqueleto de la gema con <code>bundle gem active_durable</code> en una carpeta tuya, por ejemplo <code>~/TechProjects/active_durable</code>.</li>
+    <li>Montar una app Rails mínima de pruebas dentro de la gema, con PostgreSQL.</li>
+    <li>Crear las 3 tablas: sagas, cuaderno y señales.</li>
+    <li>Escribir la primera prueba: «un paso anotado no se repite al releer».</li>
+    <li>Programar <code>Durable.define</code>, <code>Durable.start</code> y <code>flow.step</code> hasta que esa prueba pase.</li>
+  </ol>
+  <div class="rule"><span>Pregunta abierta</span>Si Stripe no responde (un timeout), no sabemos si cobró o no. ¿Deshacemos ese paso, o lo repetimos con el mismo ticket para averiguar qué pasó? Lo decidimos antes de programar las compensaciones, porque cambia la forma de la API.</div>
+  <p class="note">Antes de crear nada te voy a preguntar en qué carpeta. Vamos de a un cubito por vez, y te explico cada pieza antes de escribirla.</p>
+</section>
+
+<section class="prose">
+  <p class="eyebrow">Fuentes</p>
+  <ul class="sources">
+    <li><a href="https://github.com/radioactive-labs/chrono_forge">ChronoForge en GitHub</a></li>
+    <li><a href="https://docs.dbos.dev/python/tutorials/transaction-tutorial">DBOS: transacciones con ejecución exactamente una vez</a></li>
+    <li><a href="https://docs.dbos.dev/python/tutorials/workflow-management">DBOS: gestión de workflows (fork desde un paso)</a></li>
+    <li><a href="https://learn.microsoft.com/en-us/azure/architecture/patterns/saga">Patrón Saga: pasos compensables, pivote y reintentables (Azure)</a></li>
+    <li><a href="https://edgeguides.rubyonrails.org/8_1_release_notes.html">Notas de Rails 8.1 (Active Job Continuations)</a></li>
+    <li><a href="https://github.com/temporalio/sdk-ruby">SDK de Temporal para Ruby</a></li>
+  </ul>
+</section>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+(function () {
+  if (window.hljs) {
+    document.querySelectorAll('pre code.language-ruby').forEach(function (el) { window.hljs.highlightElement(el); });
+  }
+
+  var STEPS = [
+    { key: 'reservar_stock', name: 'Reservar stock', kind: 'atomic' },
+    { key: 'cobrar', name: 'Cobrar tarjeta', kind: 'undo' },
+    { key: 'despachar', name: 'Despachar paquete', kind: 'pivot' },
+    { key: 'email', name: 'Email de confirmación', kind: 'retry' }
+  ];
+  var TAGS = {
+    atomic: '<span class="atom">Atómico</span> · se puede deshacer',
+    undo: 'Se puede deshacer',
+    pivot: 'Punto de no retorno',
+    retry: 'Se reintenta'
+  };
+  var STATE_TEXT = {
+    pending: 'Pendiente', running: 'Ejecutando…', done: '✔ Hecho', skipped: '⏭ Ya estaba anotado',
+    failed: '✖ Falló', undone: '↩ Deshecho', retrying: '⟳ Reintentando'
+  };
+  var MARK = { pending: '—', done: '✔', failed: '✖', undone: '↩', retry: '⟳' };
+  var WORKER = {
+    idle: 'Esperando trabajo', working: 'Trabajando', dead: 'Apagado',
+    waiting: 'Dormido hasta el reintento', done: 'Terminó', compensated: 'Deshizo todo'
+  };
+
+  function initial() {
+    return {
+      cubes: STEPS.map(function () { return 'pending'; }),
+      notes: STEPS.map(function () { return { st: 'pending', res: '' }; }),
+      w: { st: 'idle', at: -1, n: 1 },
+      world: { cobros: 0, reembolsos: 0, stock: 0, paquetes: 0, emails: 0 },
+      buzon: false, flash: false, wnote: ''
+    };
+  }
+  function run(i) { return function (s) { s.cubes[i] = 'running'; s.w.st = 'working'; s.w.at = i; }; }
+  function done(i, res, fx) { return function (s) { s.cubes[i] = 'done'; s.notes[i] = { st: 'done', res: res }; if (fx) fx(s.world); }; }
+  function skip(i) { return function (s) { s.cubes[i] = 'skipped'; s.w.at = i; }; }
+  function fail(i, res) { return function (s) { s.cubes[i] = 'failed'; s.notes[i] = { st: 'failed', res: res }; }; }
+  function undo(i, res, fx) { return function (s) { s.cubes[i] = 'undone'; s.notes[i] = { st: 'undone', res: res }; s.w.at = i; if (fx) fx(s.world); }; }
+  function retry(i, res) { return function (s) { s.cubes[i] = 'retrying'; s.notes[i] = { st: 'retry', res: res }; s.w.st = 'waiting'; s.w.at = -1; }; }
+  function end(st) { return function (s) { s.w.st = st; s.w.at = -1; }; }
+  function buzon(s) { s.buzon = true; }
+  function start(s) { s.w.st = 'working'; s.w.at = 0; }
+  function crash(s) {
+    s.w = { st: 'dead', at: -1, n: s.w.n };
+    s.cubes = s.cubes.map(function (c) { return c === 'running' ? 'pending' : c; });
+    s.flash = true;
+  }
+  function revive(s) { s.w = { st: 'working', at: 0, n: s.w.n + 1 }; }
+  function wnote(t) { return function (s) { s.wnote = t; }; }
+
+  function opening() {
+    return [
+      { t: 'El controlador guarda el pedido y la nota «empezar checkout» en el mismo COMMIT. Ese es el buzón (cubito 10).', f: [buzon] },
+      { t: 'Un trabajador toma la nota y abre el cuaderno. Está vacío, así que empieza por el paso 1.', f: [start] },
+      { t: 'Paso 1, atómico: aparta el stock y anota ✔ dentro de la misma transacción (cubito 7).', f: [run(0)] },
+      { t: 'Listo: el stock y el ✔ quedaron guardados juntos.', f: [done(0, '{"reservado": true}', function (w) { w.stock = 1; })] },
+      { t: 'Paso 2: llama a Stripe con el ticket checkout-7:cobrar (cubito 5).', f: [run(1)] }
+    ];
+  }
+  var cobroOk = { t: 'Stripe cobra. El trabajador anota ✔ y el recibo en el cuaderno.', f: [done(1, '{"id": "pi_381"}', function (w) { w.cobros = 1; })] };
+
+  var SCENARIOS = [
+    {
+      id: 'ok', label: 'Todo sale bien',
+      intro: 'Escenario 1: nada falla. Sirve para ver qué se anota en el cuaderno en cada paso.',
+      frames: opening().concat([
+        cobroOk,
+        { t: 'Paso 3: despacha el paquete. Es el punto de no retorno (cubito 8).', f: [run(2)] },
+        { t: 'El paquete salió. Desde aquí ya no se deshace nada: lo que falle se reintenta.', f: [done(2, '{"guia": "MX-5521"}', function (w) { w.paquetes = 1; })] },
+        { t: 'Paso 4: envía el email de confirmación.', f: [run(3)] },
+        { t: 'Saga completada: 1 cobro, 1 paquete, 1 email.', f: [done(3, '{"enviado": true}', function (w) { w.emails = 1; }), end('done')] }
+      ])
+    },
+    {
+      id: 'apagon', label: 'Se apaga el servidor',
+      intro: 'Escenario 2: el servidor se apaga después del paso 2. Fíjate en que Stripe no cobra dos veces.',
+      frames: opening().concat([
+        cobroOk,
+        { t: 'Justo después, se apaga el servidor. La memoria del trabajador se borra, pero el cuaderno sigue en la base de datos.', f: [crash] },
+        { t: 'El barrendero ve la saga sin terminar y la encola. Llega el trabajador #2, que no recuerda nada: vuelve a correr la receta desde arriba (cubito 4).', f: [revive] },
+        { t: 'El paso 1 ya tiene ✔: no lo ejecuta y usa el resultado anotado.', f: [skip(0)] },
+        { t: 'El paso 2 ya tiene ✔: no vuelve a cobrar.', f: [skip(1)] },
+        { t: 'El paso 3 no tiene ✔: aquí continúa.', f: [run(2)] },
+        { t: 'El paquete salió.', f: [done(2, '{"guia": "MX-5521"}', function (w) { w.paquetes = 1; })] },
+        { t: 'Saga completada. Stripe cobró una sola vez.', f: [done(3, '{"enviado": true}', function (w) { w.emails = 1; }), end('done')] }
+      ])
+    },
+    {
+      id: 'peor', label: 'Apagón en el peor momento',
+      intro: 'Escenario 3: el servidor se apaga después de que Stripe cobra, pero antes de anotar ✔. Aquí trabaja el ticket.',
+      frames: opening().concat([
+        { t: 'Stripe cobra. El recibo viaja de vuelta al trabajador…', f: [function (s) { s.world.cobros = 1; }] },
+        { t: '…y el servidor se apaga antes de anotar ✔. El cuaderno no sabe que Stripe ya cobró.', f: [crash] },
+        { t: 'Llega el trabajador #2 y vuelve a correr la receta desde arriba.', f: [revive] },
+        { t: 'El paso 1 ya tiene ✔: lo salta.', f: [skip(0)] },
+        { t: 'El paso 2 no tiene ✔, así que lo ejecuta otra vez, con el mismo ticket: checkout-7:cobrar.', f: [run(1)] },
+        { t: 'Stripe reconoce el ticket, responde «ya cobré con ese ticket» y devuelve el mismo recibo. Los cobros siguen en 1.', f: [wnote('Ticket repetido: Stripe devolvió el mismo recibo'), done(1, '{"id": "pi_381"}')] },
+        { t: 'Paso 3: despacha el paquete.', f: [run(2)] },
+        { t: 'Saga completada. Un solo cobro, aunque el paso 2 se ejecutó dos veces.', f: [done(2, '{"guia": "MX-5521"}', function (w) { w.paquetes = 1; }), done(3, '{"enviado": true}', function (w) { w.emails = 1; }), end('done')] }
+      ])
+    },
+    {
+      id: 'falla', label: 'Falla antes del punto de no retorno',
+      intro: 'Escenario 4: la paquetería rechaza el envío. Como el paquete no salió, se deshace todo en reversa.',
+      frames: opening().concat([
+        cobroOk,
+        { t: 'Paso 3: intenta despachar el paquete.', f: [run(2)] },
+        { t: 'La paquetería rechaza el envío: la dirección no existe. Todavía no pasamos el punto de no retorno, así que toca deshacer (cubito 6).', f: [fail(2, 'rechazado: dirección inválida')] },
+        { t: 'Se deshace en reversa, empezando por el último paso hecho: reembolso en Stripe, también con ticket.', f: [undo(1, 'reembolsado', function (w) { w.reembolsos = 1; })] },
+        { t: 'Luego el paso 1: libera el stock.', f: [undo(0, 'stock liberado', function (w) { w.stock = 0; })] },
+        { t: 'Saga deshecha: todo quedó como antes. El cuaderno guarda qué se hizo y qué se deshizo.', f: [end('compensated')] }
+      ])
+    },
+    {
+      id: 'reintento', label: 'Falla después del punto de no retorno',
+      intro: 'Escenario 5: falla el email, pero el paquete ya salió. No se deshace nada: se reintenta.',
+      frames: opening().concat([
+        cobroOk,
+        { t: 'Paso 3: despacha el paquete.', f: [run(2)] },
+        { t: 'El paquete salió. Pasamos el punto de no retorno.', f: [done(2, '{"guia": "MX-5521"}', function (w) { w.paquetes = 1; })] },
+        { t: 'Paso 4: intenta enviar el email…', f: [run(3)] },
+        { t: 'El servidor de correo no responde. Como el paquete ya salió, no se deshace nada: se programa un reintento en 1 minuto. Mientras tanto la saga duerme y no ocupa memoria.', f: [retry(3, 'falló · reintento en 1 min')] },
+        { t: 'El reintento 1 también falla. El siguiente será en 5 minutos.', f: [retry(3, 'falló · reintento en 5 min')] },
+        { t: 'Reintento 2: el email sale. Saga completada sin devolver el dinero.', f: [run(3), done(3, '{"enviado": true}', function (w) { w.emails = 1; }), end('done')] }
+      ])
+    }
+  ];
+
+  var $ = function (id) { return document.getElementById(id); };
+  var sim = $('sim');
+  var current = 0, idx = -1, timer = null;
+
+  // Cubitos y filas del cuaderno: se crean una vez y luego solo se actualizan.
+  var track = $('track'), rows = $('nb-rows');
+  STEPS.forEach(function (st, i) {
+    var c = document.createElement('div');
+    c.className = 'cube'; c.dataset.kind = st.kind; c.dataset.state = 'pending';
+    c.innerHTML = '<span class="cube-num">Paso ' + (i + 1) + '</span><span class="cube-name">' + st.name + '</span><span class="cube-tag">' + TAGS[st.kind] + '</span><span class="cube-state"></span>';
+    track.appendChild(c);
+    var r = document.createElement('div');
+    r.className = 'nb-row';
+    r.innerHTML = '<span class="nb-mark"></span><span class="nb-key">' + st.key + '<small>ticket checkout-7:' + st.key + '</small></span><span class="nb-res"></span>';
+    rows.appendChild(r);
+  });
+
+  var chips = $('scenarios');
+  SCENARIOS.forEach(function (sc, k) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.textContent = sc.label; b.id = 'sc-' + sc.id;
+    b.addEventListener('click', function () { stop(); current = k; idx = -1; render(); });
+    chips.appendChild(b);
+  });
+
+  function stateAt(i) {
+    var s = initial();
+    var frames = SCENARIOS[current].frames;
+    for (var k = 0; k <= i; k++) {
+      s.flash = false;
+      frames[k].f.forEach(function (fn) { fn(s); });
+    }
+    return s;
+  }
+
+  function render() {
+    var sc = SCENARIOS[current];
+    var s = stateAt(idx);
+    Array.prototype.forEach.call(chips.children, function (b, k) { b.setAttribute('aria-pressed', k === current ? 'true' : 'false'); });
+    $('narration').textContent = idx < 0 ? sc.intro + ' Pulsa Reproducir o Siguiente.' : sc.frames[idx].t;
+
+    Array.prototype.forEach.call(track.children, function (c, i) {
+      c.dataset.state = s.cubes[i];
+      c.querySelector('.cube-state').textContent = STATE_TEXT[s.cubes[i]];
+    });
+    Array.prototype.forEach.call(rows.children, function (r, i) {
+      var n = s.notes[i];
+      r.dataset.st = n.st;
+      r.querySelector('.nb-mark').textContent = MARK[n.st];
+      r.querySelector('.nb-res').textContent = n.res;
+    });
+    $('nb-head').textContent = 'Nota de inicio: ' + (s.buzon ? '✔ guardada junto con el pedido' : '—');
+
+    var pill = $('worker-pill');
+    pill.dataset.st = s.w.st; pill.textContent = WORKER[s.w.st];
+    $('worker-n').textContent = '#' + s.w.n;
+    var mem;
+    if (s.w.st === 'dead') mem = 'Memoria: borrada';
+    else if (s.w.st === 'working' && s.w.at >= 0) mem = 'Memoria: va en el paso ' + (s.w.at + 1);
+    else if (s.w.st === 'waiting') mem = 'Memoria: libre. La saga es solo una fila en la tabla.';
+    else if (s.w.st === 'idle') mem = 'Memoria: vacía';
+    else mem = 'Memoria: libre';
+    $('worker-mem').textContent = mem;
+
+    ['cobros', 'reembolsos', 'stock', 'paquetes', 'emails'].forEach(function (k) { $('w-' + k).textContent = s.world[k]; });
+    $('w-note').textContent = s.wnote;
+
+    if (s.flash) { sim.classList.remove('is-crash'); void sim.offsetWidth; sim.classList.add('is-crash'); }
+    var last = sc.frames.length - 1;
+    $('progress').textContent = 'Momento ' + (idx + 1) + ' de ' + sc.frames.length;
+    $('b-prev').disabled = idx < 0;
+    $('b-next').disabled = idx >= last;
+    $('b-play').textContent = timer ? '⏸ Pausa' : (idx >= last ? '↺ Ver otra vez' : '▶ Reproducir');
+  }
+
+  function stop() { if (timer) { clearInterval(timer); timer = null; } }
+  function next() {
+    var last = SCENARIOS[current].frames.length - 1;
+    if (idx < last) { idx++; }
+    if (idx >= last) stop();
+    render();
+  }
+  $('b-next').addEventListener('click', function () { stop(); next(); });
+  $('b-prev').addEventListener('click', function () { stop(); if (idx > -1) idx--; render(); });
+  $('b-reset').addEventListener('click', function () { stop(); idx = -1; render(); });
+  $('b-play').addEventListener('click', function () {
+    if (timer) { stop(); render(); return; }
+    if (idx >= SCENARIOS[current].frames.length - 1) idx = -1;
+    timer = setInterval(next, 2600);
+    next();
+  });
+
+  render();
+})();
+</script>
