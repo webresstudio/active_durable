@@ -18,6 +18,7 @@ gem "pg", "~> 1.5"
 gem "sqlite3", ">= 2.1"
 gem "trilogy", "~> 2.9"
 
+gem "puma", "~> 7.0" # bin/demo
 gem "rack-test", "~> 2.1"
 gem "rake", "~> 13.0"
 gem "rspec", "~> 3.0"

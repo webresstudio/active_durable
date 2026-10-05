@@ -7,6 +7,29 @@ regenerate the migration when upgrading.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-05
+
+Second version: see it and operate it.
+
+### Added
+
+- `ActiveDurable.retry`, `ActiveDurable.compensate` and `ActiveDurable.rerun` (see `ActiveDurable::Operations`).
+  They refuse executions a worker holds and rotate the lease token.
+- Reruns: a new execution (`<id>~rerun-N`, `forked_from`) that reuses the completed steps before a chosen step.
+  A blocked original becomes `superseded`.
+- The dashboard engine (`mount ActiveDurable::Engine => "/durable"`): executions by status and recipe, notebooks
+  with tickets, undos and signals, and the three operations. It works in API-only apps with its own cookie
+  session and CSRF protection, and is closed in production until `config.dashboard_authorize` is set.
+- Events: `completed`, `compensated`, `blocked`, `retried`, `compensation_requested` and `rerun`
+  (`*.active_durable`).
+- `bin/demo` to browse the dashboard with sample sagas.
+
+### Changed
+
+- Requires Ruby 3.3+ (3.2 is end of life) and Rails 7.2+.
+- A compensation that reaches a completed `flow.pivot` blocks instead of undoing past the point of no return.
+- Schema: `durable_executions.forked_from` (regenerate the migration).
+
 ## [0.1.0] - 2026-10-05
 
 First version: nothing gets lost.

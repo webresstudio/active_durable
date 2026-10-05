@@ -1,0 +1,136 @@
+<%= link_to "← All executions", executions_path %>
+
+<section class="card">
+  <div class="row">
+    <h1><%= @execution.id %></h1>
+    <%= status_pill(@execution.status) %>
+    <% if compensating_now?(@execution) %><%= status_pill("compensating") %><% end %>
+  </div>
+  <dl class="facts">
+    <dt>Recipe</dt><dd><%= @execution.recipe %> v<%= @execution.recipe_version %></dd>
+    <dt>Started</dt><dd><%= when_text(@execution.created_at) %></dd>
+    <dt>Updated</dt><dd><%= when_text(@execution.updated_at) %></dd>
+    <% if @execution.wake_at %><dt>Wakes</dt><dd><%= when_text(@execution.wake_at) %></dd><% end %>
+    <% if @execution.forked_from %>
+      <dt>Rerun of</dt><dd><%= link_to @execution.forked_from, execution_path(@execution.forked_from), class: "id" %></dd>
+    <% end %>
+    <% if @reruns.any? %>
+      <dt>Reruns</dt>
+      <dd><% @reruns.each do |rerun| %><%= link_to rerun.id, execution_path(rerun), class: "id" %> <% end %></dd>
+    <% end %>
+  </dl>
+  <% if @execution.error %>
+    <p class="error"><%= @execution.error["message"] %>
+      <span class="muted">(<%= @execution.error["class"] %>)</span></p>
+  <% end %>
+
+  <div class="row" aria-label="Actions">
+    <% if can_retry?(@execution) %>
+      <%= button_to retry_execution_path(@execution), class: "primary", form_class: "inline" do %>Retry<% end %>
+    <% end %>
+    <% if can_compensate?(@execution, @forward_steps) %>
+      <%= button_to compensate_execution_path(@execution), class: "danger", form_class: "inline",
+                    form: { onsubmit: "return confirm('Undo every completed step of #{j @execution.id}?')" } do %>
+        Undo everything
+      <% end %>
+    <% end %>
+    <% if can_rerun?(@execution) && @forward_steps.any? %>
+      <%= form_with url: rerun_execution_path(@execution), method: :post, class: "inline", local: true do %>
+        <label for="rerun-from">Run again from</label>
+        <%= select_tag :from, options_for_select(@forward_steps.map(&:name), rerun_default(@forward_steps)),
+                       id: "rerun-from" %>
+        <button type="submit">Rerun</button>
+      <% end %>
+    <% end %>
+  </div>
+  <% if can_rerun?(@execution) && @forward_steps.any? %>
+    <p class="muted">A rerun is a new execution. Steps before the one you choose are reused; that step and the
+      ones after it run again with new tickets, so they have effects again.</p>
+  <% end %>
+</section>
+
+<div class="grid">
+  <section class="card">
+    <h2>Input</h2>
+    <%= pretty_json(@execution.input) %>
+  </section>
+  <section class="card">
+    <h2>Output</h2>
+    <%= pretty_json(@execution.output) %>
+  </section>
+</div>
+
+<section class="card">
+  <h2>Notebook</h2>
+  <% if @forward_steps.empty? %>
+    <p class="muted">No step has run yet.</p>
+  <% else %>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>#</th><th>Step</th><th>Status</th><th>Attempts</th><th>Result</th><th>Error</th><th>Wakes</th></tr>
+        </thead>
+        <tbody>
+          <% @forward_steps.each do |step| %>
+            <tr>
+              <td class="num"><%= step.position %></td>
+              <td>
+                <strong><%= step.name %></strong>
+                <span class="kind <%= "kind-pivot" if step.kind == "pivot" %>"><%= step.kind %></span><br>
+                <code class="muted"><%= ticket_for(@execution, step) %></code>
+              </td>
+              <td><%= status_pill(step.status) %></td>
+              <td class="num"><%= step.attempts %></td>
+              <td><%= json_preview(step.result) %></td>
+              <td class="error"><%= step.error&.dig("message").to_s.truncate(120) %></td>
+              <td><%= step.wake_at ? when_text(step.wake_at) : "" %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% end %>
+</section>
+
+<% if @undo_steps.any? %>
+  <section class="card">
+    <h2>Undos</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Undo</th><th>Status</th><th>Attempts</th><th>Error</th><th>Done</th></tr></thead>
+        <tbody>
+          <% @undo_steps.each do |step| %>
+            <tr>
+              <td><strong><%= step.name %></strong></td>
+              <td><%= status_pill(step.status) %></td>
+              <td class="num"><%= step.attempts %></td>
+              <td class="error"><%= step.error&.dig("message").to_s.truncate(120) %></td>
+              <td><%= when_text(step.updated_at) %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+<% end %>
+
+<% if @signals.any? %>
+  <section class="card">
+    <h2>Signals</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>Payload</th><th>Received</th><th>Consumed</th></tr></thead>
+        <tbody>
+          <% @signals.each do |signal| %>
+            <tr>
+              <td><strong><%= signal.name %></strong></td>
+              <td><%= json_preview(signal.payload) %></td>
+              <td><%= when_text(signal.created_at) %></td>
+              <td><%= signal.consumed_at ? when_text(signal.consumed_at) : status_pill("pending") %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+<% end %>

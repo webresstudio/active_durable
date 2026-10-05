@@ -15,10 +15,12 @@ class CreateActiveDurableTables < ActiveRecord::Migration<%= migration_version %
       t.datetime :wake_at
       t.datetime :locked_until
       t.string :lease_token
+      t.string :forked_from
       t.timestamps
     end
     add_index :durable_executions, %i[status wake_at]
     add_index :durable_executions, %i[recipe status]
+    add_index :durable_executions, :forked_from
 
     # The notebook: one row per step (and per undo) of an execution.
     create_table :durable_steps do |t|

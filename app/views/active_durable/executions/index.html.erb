@@ -1,0 +1,60 @@
+<section class="card">
+  <div class="row">
+    <h1>Executions</h1>
+    <span class="muted"><%= @counts.values.sum %> in total</span>
+  </div>
+  <div class="row counts" aria-label="Filter by status">
+    <%= link_to executions_path(recipe: @recipe, q: @query.presence), class: ("on" if @status.nil?) do %>
+      <span class="pill">all</span>
+    <% end %>
+    <% ActiveDurable::Execution::STATUSES.each do |status| %>
+      <% next unless @counts[status] %>
+      <%= link_to executions_path(status: status, recipe: @recipe, q: @query.presence), class: ("on" if @status == status) do %>
+        <%= status_pill("#{status} · #{@counts[status]}") %>
+      <% end %>
+    <% end %>
+  </div>
+  <%= form_with url: executions_path, method: :get, class: "inline", local: true do %>
+    <%= hidden_field_tag :status, @status if @status %>
+    <%= select_tag :recipe, options_for_select([["All recipes", ""]] + @recipes, @recipe), id: "recipe-filter" %>
+    <%= search_field_tag :q, @query, placeholder: "Execution id contains…", id: "id-filter" %>
+    <button type="submit">Filter</button>
+  <% end %>
+</section>
+
+<section class="card">
+  <% if @executions.empty? %>
+    <p class="muted">No executions here yet. Start one with <code>Durable.start(:recipe_name)</code>.</p>
+  <% else %>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Execution</th><th>Recipe</th><th>Status</th><th>Wakes</th><th>Problem</th><th>Updated</th></tr>
+        </thead>
+        <tbody>
+          <% @executions.each do |execution| %>
+            <tr>
+              <td class="nowrap"><%= link_to execution.id, execution_path(execution), class: "id" %></td>
+              <td><%= execution.recipe %> <span class="muted">v<%= execution.recipe_version %></span></td>
+              <td>
+                <%= status_pill(execution.status) %>
+                <% if compensating_now?(execution) %><%= status_pill("compensating") %><% end %>
+              </td>
+              <td><%= execution.wake_at ? when_text(execution.wake_at) : tag.span("—", class: "muted") %></td>
+              <td class="error"><%= execution.error&.dig("message").to_s.truncate(90) %></td>
+              <td><%= when_text(execution.updated_at) %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    <div class="row">
+      <% if @page > 1 %>
+        <%= link_to "← Newer", executions_path(status: @status, recipe: @recipe, q: @query.presence, page: @page - 1) %>
+      <% end %>
+      <% if @next_page %>
+        <%= link_to "Older →", executions_path(status: @status, recipe: @recipe, q: @query.presence, page: @page + 1) %>
+      <% end %>
+    </div>
+  <% end %>
+</section>

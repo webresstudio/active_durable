@@ -31,6 +31,11 @@ module ActiveDurable
     # Returns the current time. Tests can replace it.
     attr_accessor :clock
 
+    # Who may open the dashboard: ->(controller) { ... } returning true or false. The controller gives you
+    # request, session and authenticate_or_request_with_http_basic. Without it, the dashboard is open in
+    # development and test, and closed in production.
+    attr_accessor :dashboard_authorize
+
     attr_writer :logger
 
     def initialize
@@ -43,6 +48,7 @@ module ActiveDurable
       @sweep_grace = 60
       @parallel_concurrency = 4
       @clock = -> { Time.current }
+      @dashboard_authorize = nil
       @logger = nil
     end
 

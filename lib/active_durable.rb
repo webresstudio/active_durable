@@ -18,6 +18,7 @@ require_relative "active_durable/notebook"
 require_relative "active_durable/flow"
 require_relative "active_durable/runner"
 require_relative "active_durable/sweeper"
+require_relative "active_durable/operations"
 
 # Durable sagas for Rails. See README.md.
 module ActiveDurable
@@ -79,6 +80,19 @@ module ActiveDurable
       Execution.find(execution_id)
     end
 
+    # See ActiveDurable::Operations.
+    def retry(execution_id)
+      Operations.retry(execution_id)
+    end
+
+    def compensate(execution_id, reason: "compensated by an operator")
+      Operations.compensate(execution_id, reason: reason)
+    end
+
+    def rerun(execution_id, from:)
+      Operations.rerun(execution_id, from: from)
+    end
+
     def now
       config.clock.call + time_offset
     end
@@ -108,4 +122,4 @@ end
 # The short name used in recipes. Skipped if your app already defines a Durable constant.
 Durable = ActiveDurable unless defined?(Durable)
 
-require_relative "active_durable/railtie" if defined?(Rails::Railtie)
+require_relative "active_durable/engine" if defined?(Rails::Engine)

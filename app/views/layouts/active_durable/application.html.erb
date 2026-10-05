@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ActiveDurable</title>
+  <%= csrf_meta_tags %>
+  <style nonce="<%= content_security_policy_nonce %>">
+    :root {
+      --bg: #f4f6fa; --surface: #ffffff; --sunken: #eef1f7; --ink: #172038; --soft: #4b5574; --line: #d7ddea;
+      --accent: #c21f3a; --good: #15855a; --good-bg: #dcf2e8; --bad: #c21f3a; --bad-bg: #fbe3e7;
+      --wait: #9a6a00; --wait-bg: #fbefcf; --busy: #2d64d8; --busy-bg: #e3ebfc; --undo: #6a43c6; --undo-bg: #ece5fa;
+      --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f121b; --surface: #171b28; --sunken: #121621; --ink: #e7eaf3; --soft: #a4abc3; --line: #2a3146;
+        --accent: #ff5c74; --good: #3fcb92; --good-bg: #11342a; --bad: #ff5c74; --bad-bg: #3a1720;
+        --wait: #f0b640; --wait-bg: #382b10; --busy: #729eff; --busy-bg: #1a2645; --undo: #a98bff; --undo-bg: #2a2047;
+        color-scheme: dark;
+      }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--sans); }
+    a { color: var(--busy); }
+    header.top { display: flex; align-items: baseline; gap: 16px; padding: 14px 20px; background: var(--surface);
+                 border-bottom: 1px solid var(--line); }
+    header.top a.brand { font-weight: 800; color: var(--ink); text-decoration: none; font-size: 1.1rem; }
+    header.top span { color: var(--soft); font-size: .9rem; }
+    main { max-width: 1180px; margin: 0 auto; padding: 20px; display: flex; flex-direction: column; gap: 18px; }
+    h1 { font-size: 1.4rem; margin: 0; overflow-wrap: anywhere; }
+    h2 { font-size: 1.05rem; margin: 0; }
+    .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px;
+            display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+    .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .muted { color: var(--soft); }
+    .flash { padding: 10px 14px; border-radius: 8px; }
+    .flash.notice { background: var(--good-bg); color: var(--good); }
+    .flash.alert { background: var(--bad-bg); color: var(--bad); }
+    .pill { display: inline-block; font-size: .78rem; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+            background: var(--sunken); color: var(--soft); white-space: nowrap; }
+    .pill-good { background: var(--good-bg); color: var(--good); }
+    .pill-bad { background: var(--bad-bg); color: var(--bad); }
+    .pill-wait { background: var(--wait-bg); color: var(--wait); }
+    .pill-busy { background: var(--busy-bg); color: var(--busy); }
+    .pill-undo { background: var(--undo-bg); color: var(--undo); }
+    .counts a { text-decoration: none; }
+    .counts a.on .pill { outline: 2px solid var(--ink); }
+    .table-wrap { overflow-x: auto; }
+    table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; color: var(--soft); background: var(--sunken); }
+    tr:last-child td { border-bottom: 0; }
+    td.num { font-variant-numeric: tabular-nums; text-align: right; }
+    td.nowrap, td.nowrap .id { white-space: nowrap; overflow-wrap: normal; }
+    code, .json, .id { font-family: var(--mono); font-size: .82rem; overflow-wrap: anywhere; }
+    .json-block { font-family: var(--mono); font-size: .82rem; background: var(--sunken); padding: 10px; border-radius: 8px;
+                  margin: 0; overflow-x: auto; max-width: 100%; }
+    .error { color: var(--bad); }
+    form.inline { display: inline-flex; gap: 6px; align-items: center; margin: 0; }
+    input, select { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px;
+                    background: var(--surface); color: var(--ink); }
+    button { font: inherit; font-weight: 700; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--line);
+             background: var(--surface); color: var(--ink); cursor: pointer; }
+    button.danger { background: var(--bad); border-color: var(--bad); color: #fff; }
+    button.primary { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+    dl.facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; margin: 0; }
+    dl.facts dt { color: var(--soft); }
+    dl.facts dd { margin: 0; min-width: 0; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; }
+    .kind { font-family: var(--mono); font-size: .78rem; color: var(--soft); }
+    .kind-pivot { color: var(--wait); font-weight: 700; }
+    :focus-visible { outline: 3px solid var(--busy); outline-offset: 2px; }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <%= link_to "ActiveDurable", root_path, class: "brand" %>
+    <span>durable sagas · v<%= ActiveDurable::VERSION %></span>
+  </header>
+  <main>
+    <% flash.each do |type, message| %>
+      <p class="flash <%= type %>"><%= message %></p>
+    <% end %>
+    <%= yield %>
+  </main>
+</body>
+</html>

@@ -68,13 +68,16 @@ module ActiveDurable
     def complete!(output)
       output = Serializer.normalize(output, "the recipe's return value")
       lease.release!(status: "completed", output: output, wake_at: nil)
+      ActiveDurable.instrument("completed", execution_id: execution.id, recipe: execution.recipe)
       :completed
     end
 
     def block!(error)
       step = error.respond_to?(:step_name) ? error.step_name : nil
+      dumped = ActiveDurable.dump_error(error, step: step)
       ActiveDurable.config.logger.error("[ActiveDurable] #{execution.id} blocked: #{error.class}: #{error.message}")
-      lease.release!(status: "blocked", error: ActiveDurable.dump_error(error, step: step), wake_at: nil)
+      lease.release!(status: "blocked", error: dumped, wake_at: nil)
+      ActiveDurable.instrument("blocked", execution_id: execution.id, recipe: execution.recipe, error: dumped)
       :blocked
     end
 
@@ -87,10 +90,16 @@ module ActiveDurable
     # Runs the undos of every completed step, last one first. Each undo is its own notebook entry,
     # so a crash in the middle resumes where it stopped.
     def compensate!
+      if @flow.pivoted?
+        return block!(InvalidRecipe.new("#{execution.id} cannot be compensated: it already passed its point " \
+                                        "of no return (flow.pivot)"))
+      end
+
       ActiveDurable.instrument("compensation", execution_id: execution.id) do
         @flow.undo_stack.reverse_each { |entry| undo!(entry) }
       end
       lease.release!(status: "compensated", wake_at: nil)
+      ActiveDurable.instrument("compensated", execution_id: execution.id, recipe: execution.recipe)
       :compensated
     rescue UndoFailed => e
       block!(e)

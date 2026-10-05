@@ -1,0 +1,70 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Opens the dashboard with sample sagas in every state:
+#
+#   bin/demo            # SQLite in tmp/, nothing to set up
+#   DB=postgresql bin/demo
+#
+# Then visit http://localhost:3000/durable
+require "bundler/setup"
+ENV["DB"] ||= "sqlite3"
+require "logger"
+require "active_durable"
+require "active_durable/testing"
+require_relative "../spec/support/database"
+require_relative "../spec/support/app"
+
+ActiveJob::Base.logger = Logger.new(nil)
+ActiveJob::Base.queue_adapter = :test
+TestDatabase.setup!
+FakeStripe.reset!
+FakeMailer.reset!
+ActiveDurable.config.backoff = 30
+ActiveDurable.config.after_pivot_attempts = 3
+
+Durable.define(:checkout) do |flow, order_id:, decline: false|
+  flow.step(:reserve_stock, undo: ->(_) { true }) { { "reserved" => 1 } }
+  charge = flow.step(:charge, undo: ->(_c, ticket) { FakeStripe.refund(charge_id: "x", ticket: ticket) }) do |ticket|
+    FakeStripe.charge(amount: 2500, ticket: ticket).slice("id")
+  end
+  flow.pivot(:dispatch) do
+    raise ActiveDurable::Abort, "the carrier rejected the address" if decline
+
+    { "tracking" => "MX-#{order_id}", "charge" => charge["id"] }
+  end
+  flow.step(:confirmation_email) { |ticket| FakeMailer.deliver(ticket) && true }
+  flow.sleep(:wait_for_delivery, 3.days)
+  flow.step(:ask_for_review) { true }
+end
+
+Durable.define(:loan) do |flow, amount:|
+  flow.step(:start_kyc) { { "session" => "kyc_123" } }
+  kyc = flow.wait_for(:kyc_done, timeout: 2.hours)
+  flow.step(:record_kyc) { { "verified" => kyc["verified"], "amount" => amount } }
+end
+
+def run_until_settled(id, signals: {})
+  ActiveDurable::Testing.drain(id, signals: signals)
+ensure
+  ActiveDurable::Testing.reset!
+end
+
+ActiveDurable.enqueue_disabled = true
+run_until_settled(Durable.start(:checkout, id: "checkout-1001", order_id: 1001).id)
+run_until_settled(Durable.start(:checkout, id: "checkout-1002", order_id: 1002, decline: true).id)
+FakeMailer.fail_next(10)
+run_until_settled(Durable.start(:checkout, id: "checkout-1003", order_id: 1003).id)
+FakeMailer.reset!
+ActiveDurable::Runner.run(Durable.start(:checkout, id: "checkout-1004", order_id: 1004).id) # sleeps 3 days
+ActiveDurable::Runner.run(Durable.start(:loan, id: "loan-42", amount: 50_000).id)
+run_until_settled(Durable.start(:loan, id: "loan-43", amount: 12_000).id, signals: { kyc_done: { "verified" => true } })
+Durable.rerun("checkout-1001", from: :confirmation_email)
+run_until_settled("checkout-1001~rerun-1")
+ActiveDurable.enqueue_disabled = false
+
+require_relative "../spec/support/dummy_app"
+require "rackup"
+port = Integer(ENV.fetch("PORT", "3000"))
+puts "ActiveDurable dashboard: http://localhost:#{port}/durable"
+Rackup::Server.start(app: Dummy::Application, Port: port, server: "puma", environment: "none")

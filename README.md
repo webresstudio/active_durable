@@ -11,8 +11,9 @@ order, even if the server dies in the middle.
 - **Exactly-once database steps.** `flow.transaction` commits your change and its checkpoint together.
 - **A crash tester.** `ActiveDurable::Testing.crash_everywhere` kills your saga at every possible point and lets
   you assert nothing was duplicated.
+- **A dashboard** that also works in `rails new --api` apps, to retry, undo or rerun a saga from a step.
 
-Rails 7.2+, Ruby 3.2+, PostgreSQL (MySQL and SQLite: see the changelog).
+Rails 7.2+, Ruby 3.3+, PostgreSQL (MySQL and SQLite: see the changelog).
 
 ## Installation
 
@@ -166,8 +167,74 @@ expected and the one it found. The same happens if code outside a step reads dat
 
 ### Statuses
 
-`pending`, `running`, `sleeping` and `waiting` are active. `completed`, `compensated` and `blocked` are final.
-A blocked execution needs a person: its `error` column says why.
+`pending`, `running`, `sleeping` and `waiting` are active. `completed`, `compensated`, `blocked` and `superseded`
+are final. A blocked execution needs a person: its `error` column says why.
+
+## Operating sagas
+
+From the console, a script or the dashboard:
+
+```ruby
+ActiveDurable.retry("checkout-7")                  # blocked: try again where it stopped
+ActiveDurable.compensate("checkout-7", reason: "customer cancelled") # undo everything, before the pivot only
+ActiveDurable.rerun("checkout-7", from: :ship)     # new execution reusing the steps before :ship
+```
+
+- `retry` works on blocked executions. Failed steps (or failed undos, if it was compensating) get a fresh set of
+  attempts. When the cause was a bug, deploy the fix first.
+- `compensate` cancels a pending, sleeping, waiting or blocked execution, as long as it has not passed its point of
+  no return.
+- `rerun` creates `checkout-7~rerun-1` with the same input and copies of every completed step before `from`.
+  That step and the following ones run again with new tickets, so they have effects again. A blocked original is
+  marked `superseded`, so it can never compensate steps it now shares with the rerun.
+
+All three refuse an execution that a worker is running right now, and rotate its lease token.
+
+## Dashboard
+
+```ruby
+# config/routes.rb
+mount ActiveDurable::Engine => "/durable"
+```
+
+It lists executions by status and recipe, shows each notebook with its tickets, undos and signals, and has buttons
+for the three operations above. It is closed in production until you decide who can open it:
+
+```ruby
+# config/initializers/active_durable.rb
+ActiveDurable.config.dashboard_authorize = lambda do |controller|
+  controller.authenticate_or_request_with_http_basic do |user, password|
+    ActiveSupport::SecurityUtils.secure_compare(user, ENV.fetch("DURABLE_USER")) &
+      ActiveSupport::SecurityUtils.secure_compare(password, ENV.fetch("DURABLE_PASSWORD"))
+  end
+end
+```
+
+Or mount it behind your own authentication (for example Devise's `authenticate :user, ->(u) { u.admin? }`) and
+set `dashboard_authorize = ->(_) { true }`.
+
+The dashboard ships its own styles (no asset pipeline needed) and its own cookie session in API-only apps, so its
+forms keep CSRF protection without touching your app's middleware.
+
+## Events
+
+ActiveDurable publishes `ActiveSupport::Notifications` events. Subscribe to `blocked.active_durable` to page
+someone:
+
+```ruby
+ActiveSupport::Notifications.subscribe("blocked.active_durable") do |event|
+  Sentry.capture_message("Saga blocked", extra: event.payload)
+end
+```
+
+| Event | Payload |
+| --- | --- |
+| `execution.active_durable` | `execution_id`, `recipe` (one run of a worker) |
+| `step.active_durable` | `execution_id`, `step`, `kind` |
+| `compensation.active_durable` / `undo.active_durable` | `execution_id` (and `step`) |
+| `completed.active_durable` / `compensated.active_durable` | `execution_id`, `recipe` |
+| `blocked.active_durable` | `execution_id`, `recipe`, `error` |
+| `retried.active_durable` / `compensation_requested.active_durable` / `rerun.active_durable` | operator actions |
 
 ## Testing
 
@@ -219,7 +286,10 @@ bundle exec rspec                 # PostgreSQL (default)
 DB=mysql bundle exec rspec        # MySQL 8+
 DB=sqlite3 bundle exec rspec      # SQLite 3
 bundle exec rubocop
+bin/demo                          # the dashboard with sample sagas at http://localhost:3000/durable
 ```
+
+Use Ruby 3.3.1 or newer: Ruby 3.3.0 has a parser bug that breaks Action View 8.1.
 
 The design notes (in Spanish) live in `docs/`.
 
