@@ -240,7 +240,8 @@ mount ActiveDurable::Engine => "/durable"
 ```
 
 It lists executions by status and recipe, shows each notebook with its tickets, undos and signals, and has buttons
-for the three operations above. It is closed in production until you decide who can open it:
+for the three operations above. Outside development and test (production, staging, anything else) it stays closed
+until you decide who can open it:
 
 ```ruby
 # config/initializers/active_durable.rb
@@ -339,6 +340,8 @@ bundle install
 bundle exec rspec                 # PostgreSQL (default)
 DB=mysql bundle exec rspec        # MySQL 8+
 DB=sqlite3 bundle exec rspec      # SQLite 3
+BUNDLE_GEMFILE=gemfiles/rails_7_2.gemfile bundle exec rspec   # Rails 7.2 (the Gemfile is Rails 8.1)
+BUNDLE_GEMFILE=gemfiles/rails_8_0.gemfile bundle exec rspec   # Rails 8.0
 bundle exec rubocop
 bin/demo                          # the dashboard with sample sagas at http://localhost:3000/durable
 ```

@@ -33,7 +33,7 @@ module ActiveDurable
 
     # Who may open the dashboard: ->(controller) { ... } returning true or false. The controller gives you
     # request, session and authenticate_or_request_with_http_basic. Without it, the dashboard is open in
-    # development and test, and closed in production.
+    # development and test only: closed in production, staging and any other environment.
     attr_accessor :dashboard_authorize
 
     attr_writer :logger

@@ -21,10 +21,18 @@ Third version: everything the design called "later", except the Rust gem.
 - `ActiveDurable::OpenTelemetry.install!`: nested spans for executions, steps, compensations and undos.
 - `ActiveDurable.branch_wrappers` to carry other thread-local context into parallel branches.
 
+### Fixed
+
+- The dashboard was open in every environment except production (staging included). Without
+  `config.dashboard_authorize` it now opens only in development and test.
+
 ### Changed
 
 - MySQL 8+ and SQLite 3 are supported and run the full suite, like PostgreSQL. Tested on Rails 7.2, 8.0 and 8.1.
 - The notebook is safe to write from several threads, and only remembers writes whose transaction committed.
+- The registry looks the recipe constant up on every use, so an edited recipe is picked up after a code reload
+  in development.
+- One Gemfile per Rails version (`gemfiles/`) with lockfiles for Linux, used by the CI matrix.
 
 ## [0.2.0] - 2026-10-05
 

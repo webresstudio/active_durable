@@ -93,12 +93,14 @@ RSpec.describe "The dashboard in an API-only app" do
     expect(last_response).to be_ok
   end
 
-  it "is closed in production unless configured" do
-    allow(Rails).to receive(:env).and_return(ActiveSupport::EnvironmentInquirer.new("production"))
+  %w[production staging].each do |environment|
+    it "is closed in #{environment} unless configured" do
+      allow(Rails).to receive(:env).and_return(ActiveSupport::EnvironmentInquirer.new(environment))
 
-    get "/durable"
+      get "/durable"
 
-    expect(last_response.status).to eq(403)
-    expect(last_response.body).to include("dashboard_authorize")
+      expect(last_response.status).to eq(403)
+      expect(last_response.body).to include("dashboard_authorize")
+    end
   end
 end

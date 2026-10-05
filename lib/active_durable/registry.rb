@@ -55,7 +55,9 @@ module ActiveDurable
 
     def versions_for(name)
       name = name.to_s
-      autoload_constant(name) unless @recipes.key?(name)
+      # Always touch the constant, even if the name is known: after a code reload in development the constant
+      # is gone, and referencing it loads the edited file, which defines the recipe again.
+      autoload_constant(name)
       (@recipes[name] || {}).values.sort_by(&:version)
     end
 

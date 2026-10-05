@@ -9,12 +9,12 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    name: Ruby ${{ matrix.ruby }} · Rails ${{ matrix.rails }} · ${{ matrix.db }}
+    name: Ruby ${{ matrix.ruby }} · ${{ matrix.gemfile }} · ${{ matrix.db }}
     strategy:
       fail-fast: false
       matrix:
         ruby: ["3.3", "3.4", "4.0"]
-        rails: ["~> 7.2.0", "~> 8.0.0", "~> 8.1.0"]
+        gemfile: [gemfiles/rails_7_2.gemfile, gemfiles/rails_8_0.gemfile, Gemfile] # Gemfile = Rails 8.1
         db: [postgresql, mysql, sqlite3]
     services:
       postgres:
@@ -31,7 +31,7 @@ jobs:
         options: --health-cmd "mysqladmin ping" --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       DB: ${{ matrix.db }}
-      RAILS_VERSION: ${{ matrix.rails }}
+      BUNDLE_GEMFILE: ${{ github.workspace }}/${{ matrix.gemfile }}
       PGHOST: localhost
       PGUSER: postgres
       PGPASSWORD: postgres
