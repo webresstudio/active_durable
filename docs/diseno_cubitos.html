@@ -234,10 +234,10 @@ td.us{background:var(--blue-soft);font-weight:700}
 <div class="page">
 
 <header class="hero">
-  <p class="eyebrow">Gema para Ruby on Rails · diseño v0.1 · 5 de octubre de 2026</p>
+  <p class="eyebrow">Gema para Ruby on Rails · v0.3.0 construida · 5 de octubre de 2026</p>
   <h1>ActiveDurable <span class="hand">en cubitos</span></h1>
   <p class="lede">Si una compra falla a la mitad, ActiveDurable termina el trabajo o lo deshace en orden. Aunque el servidor se apague.</p>
-  <div class="facts"><span>Ruby puro</span><span>PostgreSQL</span><span>Rails 7.1+</span><span>Sin Redis</span><span>Sin servidores extra</span></div>
+  <div class="facts"><span>Ruby puro</span><span>PostgreSQL · MySQL · SQLite</span><span>Rails 7.2+</span><span>Ruby 3.3+</span><span>Sin Redis</span><span>Sin servidores extra</span></div>
   <nav class="toc" aria-label="Contenido">
     <a href="#simulador">Simulador</a><a href="#cubitos">Los cubitos</a><a href="#codigo">El código</a><a href="#probador">Cómo se prueba</a><a href="#cambios">Qué cambió</a><a href="#rust">¿Y Rust?</a><a href="#competencia">Competencia</a><a href="#plan">Plan</a><a href="#manos">Manos a la obra</a>
   </nav>
@@ -318,14 +318,14 @@ td.us{background:var(--blue-soft);font-weight:700}
       <div class="lesson-body">
         <h3>La receta tiene nombre</h3>
         <p>Si el servidor se apaga, otro trabajador tiene que continuar, y para eso necesita encontrar la receta. Por eso la saga se define una vez con un nombre y se inicia por ese nombre. Un bloque escrito dentro de un controlador vive en la memoria de ese proceso y muere con él.</p>
-<pre><code class="language-ruby"># app/sagas/checkout.rb: se define una vez
-Durable.define :checkout do |flow, order_id:|
+<pre><code class="language-ruby"># app/sagas/checkout_saga.rb: se define una vez
+CheckoutSaga = Durable.define :checkout do |flow, order_id:|
   # pasos...
 end
 
 # en cualquier parte: se inicia por nombre
 Durable.start :checkout, order_id: 7</code></pre>
-        <p class="note">Esto corrige el <code>Durable.run</code> en línea de la versión de Gemini: ese bloque no se podía retomar después de un apagón. Sigue sin hacer falta crear clases.</p>
+        <p class="note">Esto corrige el <code>Durable.run</code> en línea de la versión de Gemini: ese bloque no se podía retomar después de un apagón. Sigue sin hacer falta crear clases, pero la receta se asigna a una constante (<code>CheckoutSaga</code>): así Rails la carga sola en cualquier proceso y la recarga cuando la editas en desarrollo.</p>
       </div>
     </li>
 
@@ -386,7 +386,7 @@ end</code></pre>
           <div class="seq"><span class="lbl">Ida</span><span class="t ok">1 Reservar</span><span class="t ok">2 Cobrar</span><span class="t bad">3 Despachar ✖</span></div>
           <div class="seq"><span class="lbl">Vuelta</span><span class="t undo">2 Reembolsar</span><span class="t undo">1 Liberar stock</span></div>
         </div>
-        <p class="note">Deshacer también lleva su propio ticket, porque el servidor puede apagarse a mitad de un reembolso. Si tu <code>undo</code> recibe un segundo parámetro, la gema le pasa ese ticket: <code>checkout-7:cobrar:undo</code>.</p>
+        <p class="note">Deshacer también lleva su propio ticket, porque el servidor puede apagarse a mitad de un reembolso. Tu <code>undo</code> puede recibir hasta tres parámetros: el resultado del paso, su propio ticket (<code>checkout-7:cobrar:undo</code>) y el ticket del paso que deshace (<code>checkout-7:cobrar</code>). La gema le pasa los que declare.</p>
       </div>
     </li>
 
@@ -475,8 +475,8 @@ end</code></pre>
   <p class="eyebrow">Todo junto</p>
   <h2>El checkout completo</h2>
   <p>Así se vería la receta del simulador con todos los cubitos. Los números en los comentarios remiten a cada cubito.</p>
-<pre><code class="language-ruby"># app/sagas/checkout.rb
-Durable.define :checkout do |flow, order_id:|          # 2: receta con nombre
+<pre><code class="language-ruby"># app/sagas/checkout_saga.rb
+CheckoutSaga = Durable.define :checkout do |flow, order_id:| # 2: receta con nombre
   order = Order.find(order_id)                          # 4: solo lee; se repite en cada relectura
 
   flow.transaction :reservar_stock,                     # 7: atómico, exactamente una vez
@@ -530,9 +530,9 @@ end</code></pre>
   <h2>El probador de apagones</h2>
   <p>Probar una saga una sola vez no demuestra nada: los errores aparecen cuando el servidor se apaga en un momento concreto. Por eso la gema traerá un ayudante de pruebas que corre la saga una vez por cada punto donde podría apagarse: antes de cada paso, después de llamar afuera pero antes de anotar, y después de anotar. Al final de cada corrida revisa que nada se haya hecho dos veces y que la saga haya terminado completa o deshecha por completo.</p>
 <pre><code class="language-ruby">it "sobrevive a un apagón en cualquier punto" do
-  ActiveDurable::Testing.crash_everywhere(:checkout, order_id: order.id) do |saga|
-    expect(FakeStripe.cobros_por_ticket.values).to all(eq 1)
-    expect(saga.estado).to eq("completada").or eq("deshecha")
+  ActiveDurable::Testing.crash_everywhere(:checkout, order_id: order.id) do |execution, point|
+    expect(execution.status).to eq("completed").or eq("compensated")
+    expect(FakeStripe.charges.size).to eq(1) # un cobro por saga, aunque el paso se repita
   end
 end</code></pre>
   <p class="note">Esto también es lo que más vende una gema así: el usuario puede demostrar con sus propias pruebas que su saga aguanta apagones.</p>
@@ -553,7 +553,7 @@ end</code></pre>
         <tr><td>«Compensación legal» para SPEI</td><td>Punto de no retorno</td><td>Hay pasos que no se deshacen; después de ellos se reintenta.</td></tr>
         <tr><td>Fuzzy Checkpoints con xxHash3</td><td>Alarma de receta cambiada</td><td>Un hash solo dice «cambió», no si el cambio es compatible.</td></tr>
         <tr><td>Rust para hashear y validar JSON</td><td>Ruby puro</td><td>Esta gema pasa el tiempo esperando, no calculando (ver ¿Y Rust?).</td></tr>
-        <tr><td>PostgreSQL, MySQL y SQLite desde el inicio</td><td>Solo PostgreSQL en v0.1</td><td>Primero que funcione muy bien en una base de datos.</td></tr>
+        <tr><td>PostgreSQL, MySQL y SQLite desde el inicio</td><td>Las tres, con la misma suite de pruebas</td><td>El bloqueo usa un UPDATE condicional que funciona igual en las tres; las columnas JSON no tienen valores por defecto (MySQL los rechaza).</td></tr>
         <tr><td>«Job fantasma» como argumento principal</td><td>El argumento es el apagón entre COMMIT y encolado</td><td>Rails ya puede encolar después del COMMIT, y en edge (la futura 8.2) lo hará por defecto.</td></tr>
         <tr><td>3 tablas, una de ellas el Outbox</td><td>3 tablas: sagas, cuaderno y señales</td><td>El buzón es la propia fila de la saga; las señales guardan eventos que llegan antes de tiempo.</td></tr>
         <tr><td>Time-Travel desde la consola</td><td>«Volver a correr desde el paso N» (v0.2)</td><td>Como el <em>fork</em> de DBOS: copia el cuaderno hasta el paso N y sigue desde ahí.</td></tr>
@@ -609,7 +609,7 @@ end</code></pre>
   </div>
   <div class="plan">
     <div class="box now">
-      <b>v0.1 · Que no se pierda nada</b>
+      <b>v0.1.0 · Que no se pierda nada ✔</b>
       <ul>
         <li><code>Durable.define</code> y <code>Durable.start</code></li>
         <li>El cuaderno y la relectura</li>
@@ -620,44 +620,43 @@ end</code></pre>
         <li>Buzón y barrendero</li>
         <li>Alarma de receta cambiada</li>
         <li>Probador de apagones</li>
-        <li>Solo PostgreSQL</li>
+        <li><code>undo_on_failure</code> para pasos con resultado dudoso</li>
       </ul>
     </div>
-    <div class="box">
-      <b>v0.2 · Verlo y operarlo</b>
+    <div class="box now">
+      <b>v0.2.0 · Verlo y operarlo ✔</b>
       <ul>
         <li>Dashboard mínimo: lista de sagas y su cuaderno</li>
         <li>Botones de reintentar y deshacer</li>
         <li>Volver a correr desde el paso N</li>
         <li>Eventos con <code>ActiveSupport::Notifications</code></li>
+        <li>Funciona en apps <code>rails new --api</code>, cerrado fuera de development y test</li>
       </ul>
     </div>
-    <div class="box">
-      <b>Después</b>
+    <div class="box now">
+      <b>v0.3.0 · Después ✔</b>
       <ul>
         <li>MySQL y SQLite</li>
-        <li>Versionado de recetas</li>
-        <li>Pasos en paralelo</li>
+        <li>Versionado de recetas (<code>rake active_durable:versions</code>)</li>
+        <li>Pasos en paralelo (<code>flow.parallel</code>)</li>
         <li>OpenTelemetry</li>
-        <li>La gema de Rust, por separado</li>
+        <li>Pendiente: la gema de Rust, por separado</li>
       </ul>
     </div>
   </div>
 </section>
 
 <section id="manos" class="prose">
-  <p class="eyebrow">Siguiente paso</p>
-  <h2>Manos a la obra</h2>
-  <p>La primera sesión de trabajo, en orden. Cada paso termina con algo que se puede ejecutar.</p>
+  <p class="eyebrow">Dónde está</p>
+  <h2>Manos a la obra: hecho</h2>
+  <p>La gema vive en <code>~/TechProjects/MyGems/active_durable</code>, con un commit y una etiqueta por versión (<code>v0.1.0</code>, <code>v0.2.0</code>, <code>v0.3.0</code>). Tiene 78 pruebas que pasan en Rails 7.2, 8.0 y 8.1 contra PostgreSQL, MySQL y SQLite. Nada está publicado: ni en GitHub ni en RubyGems.</p>
+  <div class="rule"><span>Decisión: el timeout</span>Si Stripe no responde, primero se reintenta con el mismo ticket: si el cobro sí ocurrió, Stripe devuelve el mismo recibo. Si los reintentos se agotan, la saga deshace los pasos anteriores. Para pasos cuyo fallo puede esconder un éxito, <code>undo_on_failure: true</code> también ejecuta su propio <code>undo</code>, que recibe <code>nil</code> y el ticket del paso para buscar el cobro y devolverlo.</div>
   <ol class="steps">
-    <li>Crear el esqueleto de la gema con <code>bundle gem active_durable</code> en una carpeta tuya, por ejemplo <code>~/TechProjects/active_durable</code>.</li>
-    <li>Montar una app Rails mínima de pruebas dentro de la gema, con PostgreSQL.</li>
-    <li>Crear las 3 tablas: sagas, cuaderno y señales.</li>
-    <li>Escribir la primera prueba: «un paso anotado no se repite al releer».</li>
-    <li>Programar <code>Durable.define</code>, <code>Durable.start</code> y <code>flow.step</code> hasta que esa prueba pase.</li>
+    <li>Ver el dashboard con sagas de ejemplo: <code>bin/demo</code> y abrir <code>http://localhost:3000/durable</code> (necesita Ruby 3.3.1 o más nuevo).</li>
+    <li>Correr las pruebas: <code>bundle exec rspec</code>, con <code>DB=mysql</code> o <code>DB=sqlite3</code> para las otras bases.</li>
+    <li>Leer el README en inglés y el CHANGELOG: explican cada pieza con ejemplos.</li>
+    <li>Siguiente: subirla a GitHub, publicarla en RubyGems y buscar la idea para la gema de Rust. Cada uno, cuando lo decidas.</li>
   </ol>
-  <div class="rule"><span>Pregunta abierta</span>Si Stripe no responde (un timeout), no sabemos si cobró o no. ¿Deshacemos ese paso, o lo repetimos con el mismo ticket para averiguar qué pasó? Lo decidimos antes de programar las compensaciones, porque cambia la forma de la API.</div>
-  <p class="note">Antes de crear nada te voy a preguntar en qué carpeta. Vamos de a un cubito por vez, y te explico cada pieza antes de escribirla.</p>
 </section>
 
 <section class="prose">
