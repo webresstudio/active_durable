@@ -36,7 +36,9 @@ module ActiveDurable
       lease.release!(status: status, wake_at: wake_at)
       ActiveDurable.enqueue(execution.id, wait_until: wake_at) if wake_at
       # A signal may have been committed while we held the lease; its own job found us busy.
-      ActiveDurable.enqueue(execution.id) if status == "waiting" && SignalRecord.pending.exists?(execution_id: execution.id)
+      if status == "waiting" && SignalRecord.pending.exists?(execution_id: execution.id)
+        ActiveDurable.enqueue(execution.id)
+      end
       throw SUSPEND, status.to_sym
     end
 
@@ -117,7 +119,8 @@ module ActiveDurable
 
     def call_undo(entry, ticket, name)
       callable = entry.undo
-      args = [entry.result.deep_dup, ticket]
+      # (result, undo ticket, ticket of the step being undone): the undo takes as many as it declares.
+      args = [entry.result.deep_dup, ticket, "#{execution.id}:#{entry.name}"]
       parameters = callable.respond_to?(:parameters) ? callable.parameters : callable.method(:call).parameters
       if parameters.any? { |type, _| type == :rest }
         callable.call(*args)

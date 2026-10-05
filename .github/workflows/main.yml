@@ -1,27 +1,55 @@
-name: Ruby
+name: CI
 
 on:
   push:
     branches:
       - main
-
   pull_request:
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
-    name: Ruby ${{ matrix.ruby }}
+    name: Ruby ${{ matrix.ruby }} · Rails ${{ matrix.rails }} · ${{ matrix.db }}
     strategy:
+      fail-fast: false
       matrix:
-        ruby:
-          - '3.3.0'
-
+        ruby: ["3.2", "3.3", "3.4"]
+        rails: ["~> 7.2.0", "~> 8.0.0", "~> 8.1.0"]
+        db: [postgresql, mysql, sqlite3]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+        ports: ["3306:3306"]
+        options: --health-cmd "mysqladmin ping" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DB: ${{ matrix.db }}
+      RAILS_VERSION: ${{ matrix.rails }}
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      MYSQL_HOST: 127.0.0.1
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Ruby
-      uses: ruby/setup-ruby@v1
-      with:
-        ruby-version: ${{ matrix.ruby }}
-        bundler-cache: true
-    - name: Run the default task
-      run: bundle exec rake
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+      - run: bundle exec rspec
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+      - run: bundle exec rubocop

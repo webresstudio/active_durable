@@ -30,7 +30,7 @@ module ActiveDurable
       max_runs.times do
         execution = Execution.find(execution_id)
         return execution if execution.terminal?
-        return execution unless prepare_next_run(execution, signals)
+        return execution unless ready_for_next_run?(execution, signals)
 
         Runner.run(execution_id)
       end
@@ -89,19 +89,19 @@ module ActiveDurable
     end
 
     # Decides what has to happen before the next run. Returns false when nothing can move the execution.
-    def prepare_next_run(execution, signals)
+    def ready_for_next_run?(execution, signals)
       now = ActiveDurable.now
       if execution.locked_until && execution.locked_until > now
         travel(execution.locked_until - now + 0.001) # a crashed worker still holds the lease
       elsif execution.status == "waiting"
-        return prepare_waiting(execution, signals, now)
+        return waiting_can_move?(execution, signals, now)
       elsif execution.wake_at && execution.wake_at > now
         travel(execution.wake_at - now + 0.001)
       end
       true
     end
 
-    def prepare_waiting(execution, signals, now)
+    def waiting_can_move?(execution, signals, now)
       return true if SignalRecord.pending.exists?(execution_id: execution.id)
 
       waiting = execution.steps.find_by(status: "waiting")

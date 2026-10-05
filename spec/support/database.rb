@@ -37,8 +37,11 @@ module TestDatabase
 
   def setup!
     db_config = ActiveRecord::DatabaseConfigurations::HashConfig.new("test", "primary", config)
-    FileUtils.mkdir_p(File.dirname(config["database"])) if db_config.adapter == "sqlite3"
-    silence_stdout { ActiveRecord::Tasks::DatabaseTasks.create(db_config) }
+    if db_config.adapter == "sqlite3"
+      FileUtils.mkdir_p(File.dirname(config["database"])) # the file is created on connect
+    else
+      silence_stdout { ActiveRecord::Tasks::DatabaseTasks.create(db_config) }
+    end
     ActiveRecord::Base.establish_connection(db_config)
     load_schema!
   end
@@ -73,10 +76,12 @@ module TestDatabase
   end
 
   def silence_stdout
-    original = $stdout
-    $stdout = File.open(File::NULL, "w")
+    original_out = $stdout
+    original_err = $stderr
+    $stdout = $stderr = File.open(File::NULL, "w")
     yield
   ensure
-    $stdout = original
+    $stdout = original_out
+    $stderr = original_err
   end
 end

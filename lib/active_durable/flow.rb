@@ -12,7 +12,7 @@ module ActiveDurable
   #   end
   class Flow
     UndoEntry = Struct.new(:name, :kind, :result, :undo)
-    STEP_OPTIONS = %i[retry].freeze
+    STEP_OPTIONS = %i[retry undo_on_failure].freeze
 
     attr_reader :undo_stack
 
@@ -150,20 +150,24 @@ module ActiveDurable
       raise InvalidRecipe, "unknown option(s) for flow.#{kind}: #{unknown.join(", ")}" if unknown.any?
 
       name, position = visit!(name, kind)
-      check_undo!(name, undo)
+      check_undo!(name, kind, undo, options)
 
       entry = @notebook[name]
       return remember(name, kind, entry.result, undo) if entry&.completed?
-      raise StepFailed.new(name, entry.error&.fetch("message", nil)) if entry&.failed?
+
+      if entry&.failed?
+        remember_failure(name, kind, undo, options)
+        raise StepFailed.new(name, entry.error&.fetch("message", nil))
+      end
       raise StopForward, name if compensating?
 
       @runner.suspend!(entry.wake_at, "sleeping") if entry&.retrying? && entry.wake_at && entry.wake_at > now
 
-      result = execute(name, kind, position, entry, options[:retry], block)
+      result = execute(name, kind, position, entry, undo, options, block)
       remember(name, kind, result, undo)
     end
 
-    def execute(name, kind, position, entry, retry_option, block)
+    def execute(name, kind, position, entry, undo, options, block)
       ticket = ticket_for(name)
       ActiveDurable.crash_point(:before_step, name)
       result = ActiveDurable.instrument("step", execution_id: execution_id, step: name, kind: kind) do
@@ -178,7 +182,7 @@ module ActiveDurable
     rescue NotSerializable, InvalidRecipe
       raise
     rescue StandardError => e
-      handle_failure(name, kind, position, entry, retry_option, e)
+      handle_failure(name, kind, position, entry, undo, options, e)
     end
 
     def record_result(name, kind, position, value)
@@ -188,14 +192,15 @@ module ActiveDurable
       result
     end
 
-    def handle_failure(name, kind, position, entry, retry_option, error)
+    def handle_failure(name, kind, position, entry, undo, options, error)
       attempts = (entry&.attempts || 0) + 1
       default = @pivoted ? config.after_pivot_attempts : config.step_attempts
-      policy = RetryPolicy.build(retry_option, default_attempts: default)
+      policy = RetryPolicy.build(options[:retry], default_attempts: default)
       dumped = ActiveDurable.dump_error(error, step: name)
 
       if error.is_a?(Abort) || attempts >= policy.attempts
         @notebook.fail!(name, kind: kind, position: position, attempts: attempts, error: dumped)
+        remember_failure(name, kind, undo, options)
         raise StepFailed.new(name, error)
       end
 
@@ -210,7 +215,20 @@ module ActiveDurable
       result.deep_dup
     end
 
-    def check_undo!(name, undo)
+    # A failed step whose outcome may be unknown (a timeout after the charge went through) can ask for
+    # its own undo too. It receives nil as the result, plus the ticket to look the outcome up.
+    def remember_failure(name, kind, undo, options)
+      @undo_stack << UndoEntry.new(name, kind, nil, undo) if undo && options[:undo_on_failure]
+    end
+
+    def check_undo!(name, kind, undo, options)
+      if options[:undo_on_failure]
+        raise InvalidRecipe, "undo_on_failure: on :#{name} needs an undo:" if undo.nil?
+        if kind == "transaction"
+          raise InvalidRecipe, "undo_on_failure: makes no sense on flow.transaction :#{name}: a failed " \
+                               "transaction was rolled back"
+        end
+      end
       return if undo.nil?
       raise InvalidRecipe, "undo: for :#{name} must respond to #call" unless undo.respond_to?(:call)
       return unless @pivoted

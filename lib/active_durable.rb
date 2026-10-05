@@ -48,8 +48,8 @@ module ActiveDurable
 
     # Defines a recipe. Assign the result to a constant (CheckoutSaga = Durable.define(:checkout) { ... })
     # so Rails can autoload it in any process.
-    def define(name, version: 1, &block)
-      registry.define(name, version: version, &block)
+    def define(name, version: 1, &)
+      registry.define(name, version: version, &)
     end
 
     # Starts a saga. Call it inside the transaction that creates your record: the saga row is committed
@@ -94,8 +94,8 @@ module ActiveDurable
       job.perform_later(execution_id)
     end
 
-    def instrument(event, payload = {}, &block)
-      ActiveSupport::Notifications.instrument("#{event}.active_durable", payload, &block)
+    def instrument(event, payload = {}, &)
+      ActiveSupport::Notifications.instrument("#{event}.active_durable", payload, &)
     end
 
     # Hook used by ActiveDurable::Testing to simulate crashes at precise points.

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 module ActiveDurable
+  # Settings for the whole gem. Change them in an initializer with ActiveDurable.configure.
   class Configuration
     # How long a worker owns an execution without writing to it. Must be longer than your slowest step:
     # every notebook write renews it.

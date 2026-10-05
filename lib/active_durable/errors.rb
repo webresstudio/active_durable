@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+# Error classes. Everything a recipe may want to rescue inherits from ActiveDurable::Error.
 module ActiveDurable
   class Error < StandardError; end
 
