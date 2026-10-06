@@ -10,8 +10,10 @@ regenerate the migration when upgrading.
 ### Changed
 
 - README: the quick start recipe reads top to bottom, with one-line undos and the Stripe calls in a `Payments`
-  module where charging and refunding sit side by side. A new section, "In a Rails app", shows where each piece goes
-  (service, controller, model, view) and how the job is managed when the gem owns it.
+  module where charging and refunding sit side by side. A new section, "In a Rails app", sets up a Rails app step by
+  step: install, job backend, sweeper, the initializer with every setting, routes, where each piece of code goes
+  (recipe, service, controller, model, view), how the job is managed when the gem owns it, tests, and a checklist
+  before going to production. The settings moved there from "Observability".
 - Specs cover undos without arguments (`-> { ... }`), a `Method` as an undo, and `flow.abort!` inside a step, which
   skips the step's remaining retries.
 

@@ -115,19 +115,94 @@ Order.transaction do
 end
 ```
 
-Then schedule the sweeper, which picks up anything a crash left behind. With Solid Queue, in
-`config/recurring.yml`:
+To run it for real, with a job backend, the sweeper, the initializer, the dashboard and tests, follow
+[In a Rails app](#in-a-rails-app).
+
+> `Durable` is a short alias for `ActiveDurable`. It is skipped if your app already defines a `Durable` constant.
+
+## In a Rails app
+
+Everything a Rails app needs, in order. Steps 1 to 5 are done once; step 6 is the code you write for each saga.
+
+### 1. Install
+
+Run the three commands from the [quick start](#quick-start). The migration creates `durable_executions`,
+`durable_steps` and `durable_signals` in your **primary database**, next to your models: `flow.transaction` runs
+exactly once only because the notebook and your data commit together. A queue in its own database, like Solid
+Queue's in Rails 8, is fine.
+
+### 2. A job backend
+
+ActiveDurable runs on Active Job, so it uses the backend you already have. New Rails 8 apps come with Solid Queue;
+on older apps, `bundle add solid_queue` and `bin/rails solid_queue:install` write these lines. With Sidekiq or
+GoodJob, set their adapter instead.
+
+```ruby
+# config/environments/production.rb
+config.active_job.queue_adapter = :solid_queue
+config.solid_queue.connects_to = { database: { writing: :queue } }
+```
+
+- **Workers must listen to the saga queue.** It is `:default` unless you change `config.queue_name`; if you do, add
+  it to your workers (Solid Queue's `config/queue.yml`, Sidekiq's `-q`).
+- **In development** Rails' default `:async` adapter runs jobs inside the server, sleeps and retries included. With
+  Solid Queue, run `bin/jobs` next to the server.
+
+### 3. The sweeper
+
+The safety net: every minute it enqueues executions that lost their job, because the process died between the
+commit and the enqueue or a worker died holding a lease. With Solid Queue:
 
 ```yaml
+# config/recurring.yml
 production:
   active_durable_sweep:
     class: ActiveDurable::SweepJob
     schedule: every minute
 ```
 
-> `Durable` is a short alias for `ActiveDurable`. It is skipped if your app already defines a `Durable` constant.
+With another backend, schedule `ActiveDurable::SweepJob` in its own scheduler (GoodJob cron, sidekiq-cron), or run
+`bin/rails active_durable:sweep` from cron.
 
-## In a Rails app
+### 4. The initializer
+
+The settings, with their defaults:
+
+```ruby
+# config/initializers/active_durable.rb
+ActiveDurable.configure do |config|
+  config.queue_name = :default          # the queue of ActiveDurable::RunJob and SweepJob
+  config.lease_duration = 5.minutes     # longer than your slowest step
+  config.step_attempts = 3              # before the pivot, then undo
+  config.after_pivot_attempts = 25      # after the pivot, then block
+  config.undo_attempts = 10             # then block
+  config.backoff = ->(attempt) { [2**attempt, 3600].min } # or [5, 30, 300], or a number
+  config.parallel_concurrency = 4       # threads per flow.parallel
+  config.sweep_grace = 1.minute         # the sweeper leaves executions this young alone
+
+  # Who may open the dashboard outside development and test. With Devise (HTTP basic auth: see Dashboard):
+  config.dashboard_authorize = ->(controller) { controller.request.env["warden"]&.user&.admin? }
+end
+
+# Tell someone when a saga needs a person.
+ActiveSupport::Notifications.subscribe("blocked.active_durable") do |event|
+  Sentry.capture_message("Saga blocked", extra: event.payload)
+end
+```
+
+For traces, see [OpenTelemetry](#observability).
+
+### 5. Routes
+
+```ruby
+# config/routes.rb
+mount ActiveDurable::Engine => "/durable"
+```
+
+### 6. Your code
+
+Each recipe lives in `app/sagas/<name>_saga.rb` and is assigned to `<Name>Saga`, so a worker can load
+`:checkout` from `CheckoutSaga` by its name.
 
 ```text
 app/
@@ -185,7 +260,7 @@ The `id:` ties the saga to its order, so the order page can show where the saga 
 The customer does not see "card declined" in the same response: the page says "Processing…" and updates itself
 with polling or Turbo Streams. In exchange, nobody is ever charged for half an order.
 
-### The job
+### 7. The job
 
 You do not write one. Once the transaction commits, ActiveDurable enqueues its own `ActiveDurable::RunJob` with the
 execution id, on the Active Job backend you already use (Solid Queue, Sidekiq, GoodJob…). Every time the saga wakes
@@ -205,6 +280,38 @@ the notebook, not to the job: if your backend retries the job too, the copy find
 
 > Do not wrap `Durable.start` in a job of your own. The order and its saga would no longer be saved together, and a
 > crash between the two would leave an order without a saga.
+
+### 8. Tests
+
+```ruby
+# spec/rails_helper.rb
+require "active_durable/testing"
+
+RSpec.configure do |config|
+  config.before { ActiveDurable::Testing.reset! } # forgets simulated time and crash hooks
+end
+```
+
+```ruby
+# spec/services/place_order_spec.rb
+it "charges once and confirms the order" do
+  order = PlaceOrder.call(order_params)
+
+  expect(ActiveDurable::Testing.drain(order.checkout.id).status).to eq("completed")
+end
+```
+
+`drain` runs the saga right there, without a worker. Stub Stripe as you already do, then let the
+[crash tester](#testing-the-crash-tester) kill the saga at every point.
+
+### 9. Before going to production
+
+- [ ] Workers are running and listen to `config.queue_name`.
+- [ ] The sweeper runs every minute.
+- [ ] `dashboard_authorize` is set; without it the dashboard answers 403.
+- [ ] `lease_duration` is longer than your slowest step.
+- [ ] Every step that calls an outside service passes the ticket as its idempotency key.
+- [ ] The crash tester passes for every recipe.
 
 ## How it works
 
@@ -462,24 +569,7 @@ ActiveDurable::OpenTelemetry.install!
 
 </details>
 
-<details>
-<summary><b>Configuration</b></summary>
-
-<br>
-
-```ruby
-ActiveDurable.configure do |config|
-  config.lease_duration = 5.minutes     # longer than your slowest step
-  config.step_attempts = 3              # before the pivot, then undo
-  config.after_pivot_attempts = 25      # after the pivot, then block
-  config.undo_attempts = 10             # then block
-  config.backoff = ->(attempt) { [2**attempt, 3600].min } # or [5, 30, 300], or a number
-  config.parallel_concurrency = 4
-  config.queue_name = :default
-end
-```
-
-</details>
+The settings are in [the initializer](#4-the-initializer).
 
 ## Compatibility
 
