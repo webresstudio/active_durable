@@ -7,15 +7,19 @@ regenerate the migration when upgrading.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-06
+
+More Ruby and Rails versions, and a README in two languages.
+
 ### Changed
 
 - Supports Ruby 3.1+ and Rails 6.1+ (was Ruby 3.3+ and Rails 7.2+), with every feature on every version. The
   notebook no longer relies on `ActiveRecord.after_all_transactions_commit`: `flow.transaction` steps and their
   undos run inside `Notebook#transaction`, which remembers their writes only once the transaction commits.
 - CI covers Ruby 3.1, 3.2, 3.3, 3.4 and 4.0 against Rails 6.1, 7.0, 7.1, 7.2, 8.0 and 8.1 and the three
-  databases (84 jobs). MySQL runs on mysql2 for Rails 6.1 and 7.0, and on trilogy from 7.1. Each job resolves its own gems from `gemfiles/rails-X.Y.gemfile`; per-Rails lockfiles are no longer
-  committed, so they can never fall behind the gem version (which broke the 0.4.0 CI run).
-
+  databases (84 jobs). MySQL runs on mysql2 for Rails 6.1 and 7.0, and on trilogy from 7.1. Each job resolves its
+  own gems from `gemfiles/rails-X.Y.gemfile`; per-Rails lockfiles are no longer committed, so they can never fall
+  behind the gem version (which broke the 0.4.0 CI run).
 - The README is rewritten, with animated explanations (`docs/assets/*.svg`, built by `docs/assets/generate.rb`),
   dashboard screenshots, a state diagram and a compatibility table.
 - The README also exists in Spanish (`README.es.md`, with its own animations). `CONTRIBUTING.md` and `CLAUDE.md`

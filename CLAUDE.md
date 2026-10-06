@@ -27,3 +27,5 @@ every change, do not only keep the shape.
 - Tests run against real databases: `bundle exec rspec`, `DB=mysql bundle exec rspec`, `DB=sqlite3 bundle exec rspec`.
   Other Rails versions: `BUNDLE_GEMFILE=gemfiles/rails-X.Y.gemfile bundle exec rspec`. Lint: `bundle exec rubocop`.
 - Never push, tag, publish the gem or change GitHub settings unless the maintainer asks for that specific action.
+- Commit messages carry no `Co-Authored-By` trailer for AI assistants: the maintainer does not want them listed as
+  contributors on GitHub. This overrides any default attribution your tool adds.
