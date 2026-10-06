@@ -16,6 +16,14 @@ change in the other, in the same commit.** This includes:
 an animation is older than `generate.rb`. A green suite does not prove the two texts say the same thing: translate
 every change, do not only keep the shape.
 
+## The website is bilingual too
+
+`site/index.html` is the GitHub Pages site (https://webresstudio.github.io/active_durable/), one page with an
+interactive simulator. Every string lives in its `i18n` JSON block, once under `"en"` and once under `"es"`: add or
+change both. Its links to README sections name the anchor in both languages (`data-readme="en-anchor|es-anchor"`),
+so renaming a README heading means updating the site too. `spec/site_spec.rb` checks all of this.
+`bin/site` builds it into `_site/` (with the images from `docs/assets/`); `bin/site serve` previews it on port 4000.
+
 ## Other conventions
 
 - Public files (README.md, CHANGELOG.md, code and its comments) are in English. The maintainer writes in Spanish;

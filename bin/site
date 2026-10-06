@@ -1,0 +1,21 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Builds the website into _site/: site/ plus the README's animations and dashboard screenshots, so they live in
+# one place (docs/assets). GitHub Pages publishes _site/ (.github/workflows/pages.yml).
+#
+#   bin/site                 # build
+#   bin/site serve           # build and serve it on http://localhost:4000
+
+require "fileutils"
+
+root = File.expand_path("..", __dir__)
+out = File.join(root, "_site")
+
+FileUtils.rm_rf(out)
+FileUtils.mkdir_p(File.join(out, "assets"))
+FileUtils.cp_r(File.join(root, "site", "."), out)
+FileUtils.cp(Dir[File.join(root, "docs/assets/*.{svg,png}")], File.join(out, "assets"))
+puts "Built #{out}"
+
+exec("python3", "-m", "http.server", "4000", "--directory", out) if ARGV.first == "serve"

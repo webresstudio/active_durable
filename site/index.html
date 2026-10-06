@@ -1,0 +1,1366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ActiveDurable · Durable sagas for Rails</title>
+<meta name="description" content="Finish the work or undo it in order, even if the server dies. Durable sagas for Rails, stored in your own database.">
+<link rel="canonical" href="https://webresstudio.github.io/active_durable/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="ActiveDurable · Durable sagas for Rails">
+<meta property="og:description" content="Finish the work or undo it in order, even if the server dies.">
+<meta property="og:image" content="https://webresstudio.github.io/active_durable/assets/dashboard-saga.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#0E1424">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230E1424'/%3E%3Crect x='4' y='11' width='7' height='10' rx='2' fill='%233DD6A0'/%3E%3Crect x='12.5' y='11' width='7' height='10' rx='2' fill='%23F2B641'/%3E%3Crect x='21' y='11' width='7' height='10' rx='2' fill='%23B08CFF'/%3E%3C/svg%3E">
+<style>
+:root {
+  --bg: #0E1424; --surface: #151D33; --sunken: #10172A; --line: #26304D; --ink: #E8ECF8; --soft: #9AA5C4;
+  --jade: #3DD6A0; --jade-bg: #0F3329; --amber: #F2B641; --amber-bg: #3A2D10; --cobalt: #7EA6FF; --cobalt-bg: #182649;
+  --ruby: #FF5C74; --ruby-bg: #3B1522; --violet: #B08CFF; --violet-bg: #281F48; --slate: #56607E;
+  --f-display: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-body: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --f-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  --max: 1120px; --gutter: 16px; --radius: 14px;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 var(--f-body); overflow-x: hidden; }
+a { color: var(--cobalt); }
+code, pre, kbd { font-family: var(--f-mono); }
+:not(pre) > code { font-size: .88em; background: var(--sunken); border: 1px solid var(--line); border-radius: 6px; padding: .08em .38em; }
+img { max-width: 100%; height: auto; display: block; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--cobalt); outline-offset: 3px; border-radius: 6px; }
+
+/* Soft glows behind the page, drifting slowly. */
+.aurora { position: fixed; inset: -20vmax; z-index: -1; pointer-events: none; overflow: hidden; }
+.aurora i { position: absolute; width: 60vmax; height: 60vmax; border-radius: 50%; filter: blur(90px); opacity: .22; animation: drift 26s ease-in-out infinite alternate; }
+.aurora i:nth-child(1) { background: #2B4FA8; top: 0; left: 5%; }
+.aurora i:nth-child(2) { background: #5B3BA8; top: 30%; right: 0; animation-duration: 32s; }
+.aurora i:nth-child(3) { background: #13664F; bottom: 0; left: 30%; opacity: .14; animation-duration: 38s; }
+@keyframes drift { to { transform: translate(6vmax, -4vmax) scale(1.08); } }
+
+.wrap { max-width: var(--max); margin: 0 auto; padding: 0 var(--gutter); }
+
+/* Header */
+.top { position: sticky; top: 0; z-index: 20; background: rgba(14, 20, 36, .78); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-bottom: 1px solid rgba(38, 48, 77, .7); }
+.top .wrap { display: flex; align-items: center; gap: 18px; height: 60px; }
+.brand { display: flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; font: 700 1.05rem/1 var(--f-display); white-space: nowrap; }
+.mark { display: inline-flex; gap: 3px; }
+.mark i { width: 7px; height: 14px; border-radius: 2px; background: var(--slate); animation: mark 3.6s infinite; }
+.mark i:nth-child(1) { --c: var(--jade); }
+.mark i:nth-child(2) { --c: var(--amber); animation-delay: .25s; }
+.mark i:nth-child(3) { --c: var(--violet); animation-delay: .5s; }
+@keyframes mark { 0%, 12% { background: var(--slate); } 20%, 70% { background: var(--c); } 85%, 100% { background: var(--slate); } }
+.nav { display: flex; gap: 4px; margin-left: auto; }
+.nav a { color: var(--soft); text-decoration: none; font-size: .93rem; padding: 6px 10px; border-radius: 8px; }
+.nav a:hover { color: var(--ink); background: var(--surface); }
+.lang { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 2px; }
+.lang button { border: 0; background: none; padding: 4px 10px; border-radius: 999px; font-size: .8rem; font-weight: 700; color: var(--soft); cursor: pointer; }
+.lang button[aria-pressed="true"] { background: var(--surface); color: var(--ink); }
+.gh { display: inline-flex; align-items: center; color: var(--ink); padding: 6px; border-radius: 8px; }
+.gh:hover { background: var(--surface); }
+.gh svg { width: 20px; height: 20px; fill: currentColor; }
+@media (max-width: 760px) { .nav { display: none; } .lang { margin-left: auto; } }
+
+/* Sections */
+section { padding: 88px 0; }
+.eyebrow { margin: 0 0 10px; font: 700 .78rem/1 var(--f-display); letter-spacing: .14em; text-transform: uppercase; color: var(--jade); }
+h1, h2, h3 { font-family: var(--f-display); line-height: 1.12; margin: 0; letter-spacing: -.01em; }
+h2 { font-size: clamp(1.8rem, 4vw, 2.6rem); }
+.lede { color: var(--soft); font-size: 1.08rem; max-width: 64ch; margin: 14px 0 0; }
+.head { margin-bottom: 36px; }
+.js .reveal { opacity: 0; transform: translateY(18px); transition: opacity .7s ease, transform .7s ease; }
+.js .reveal.in { opacity: 1; transform: none; }
+
+/* Hero */
+.hero { padding: 72px 0 40px; }
+.hero h1 { font-size: clamp(2.4rem, 6.4vw, 4.4rem); max-width: 15ch; }
+.hero h1 em { font-style: normal; color: var(--jade); }
+.hero .lede { font-size: 1.15rem; margin-top: 20px; }
+.badges { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 22px; }
+.pill { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: rgba(21, 29, 51, .7); border-radius: 999px; padding: 5px 12px; font-size: .84rem; color: var(--soft); }
+.pill b { color: var(--jade); font-weight: 700; }
+.badges img { height: 20px; width: auto; }
+.cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; align-items: center; }
+.cmd { display: inline-flex; align-items: center; gap: 4px; background: var(--sunken); border: 1px solid var(--line); border-radius: 12px; padding: 5px 5px 5px 16px; max-width: 100%; }
+.cmd code { font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmd code::before { content: "$ "; color: var(--slate); }
+.copy { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 6px 11px; font-size: .8rem; font-weight: 700; color: var(--soft); cursor: pointer; flex: none; }
+.copy:hover { color: var(--ink); border-color: var(--slate); }
+.copy.ok { color: var(--jade); border-color: var(--jade); }
+.btn { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; font-weight: 700; border-radius: 12px; padding: 11px 18px; border: 1px solid var(--line); color: var(--ink); background: var(--surface); }
+.btn:hover { border-color: var(--slate); }
+.btn.primary { background: var(--jade); color: #062218; border-color: transparent; box-shadow: 0 6px 16px rgba(0, 0, 0, .35); }
+.btn.primary:hover { filter: brightness(1.06); }
+.facts { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 26px; color: var(--soft); font-size: .9rem; }
+.facts span::before { content: "●"; color: var(--jade); margin-right: 8px; font-size: .6em; vertical-align: middle; }
+.stage { margin-top: 48px; border: 1px solid var(--line); border-radius: 20px; overflow: hidden; background: var(--sunken); box-shadow: 0 30px 80px rgba(0, 0, 0, .45), 0 0 0 1px rgba(255, 255, 255, .04) inset; }
+
+/* Why */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+.card { background: rgba(21, 29, 51, .72); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; transition: transform .25s ease, border-color .25s ease; }
+.card:hover { transform: translateY(-3px); border-color: var(--slate); }
+.card h3 { font-size: 1.12rem; margin: 14px 0 8px; }
+.card p { margin: 0; color: var(--soft); font-size: .95rem; }
+.icon { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; background: var(--c-bg); color: var(--c); }
+.icon svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Simulator */
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: -14px 0 22px; color: var(--soft); font-size: .88rem; }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.legend i { width: 14px; height: 14px; border-radius: 4px; background: var(--c-bg); border: 2px solid var(--c); }
+.sim { position: relative; background: rgba(21, 29, 51, .8); border: 1px solid var(--line); border-radius: 20px; padding: 22px; overflow: hidden; }
+.scenarios { display: flex; flex-wrap: wrap; gap: 8px; }
+.scenarios button { border: 1px solid var(--line); background: var(--sunken); color: var(--soft); border-radius: 999px; padding: 7px 14px; font-size: .88rem; cursor: pointer; transition: all .2s ease; }
+.scenarios button:hover { color: var(--ink); border-color: var(--slate); }
+.scenarios button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); font-weight: 700; }
+.narration { min-height: 4.8em; margin: 20px 0 8px; font-size: 1.08rem; line-height: 1.55; }
+.narration.fresh { animation: fadeUp .45s ease; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } }
+.track { position: relative; display: grid; grid-template-columns: 1fr 26px 1fr 26px 1fr 54px 1fr; align-items: center; padding: 6px 0 34px; }
+.block { --k: var(--cobalt); --k-bg: var(--cobalt-bg); --k-glow: rgba(126, 166, 255, .45); position: relative; min-width: 0; min-height: 132px; border: 2px solid var(--line); border-radius: 14px; background: var(--sunken); padding: 12px 12px 10px; display: flex; flex-direction: column; gap: 3px; transition: background .35s ease, border-color .35s ease, opacity .35s ease; }
+.block[data-kind="pivot"] { --k: var(--amber); --k-bg: var(--amber-bg); --k-glow: rgba(242, 182, 65, .45); }
+.block[data-kind="retry"] { --k: var(--jade); --k-bg: var(--jade-bg); --k-glow: rgba(61, 214, 160, .45); }
+.b-num { font: 700 .7rem/1 var(--f-display); text-transform: uppercase; letter-spacing: .1em; color: var(--k); }
+.b-name { font: 700 1rem/1.25 var(--f-display); }
+.b-call { font-size: .72rem; color: var(--soft); background: none !important; border: 0 !important; padding: 0 !important; overflow-wrap: anywhere; }
+.b-state { margin-top: auto; font-size: .82rem; font-weight: 700; color: var(--soft); }
+.block[data-state="running"] { border-color: var(--k); animation: beat 1.1s ease-in-out infinite; }
+.block[data-state="running"] .b-state { color: var(--k); }
+@keyframes beat { 0%, 100% { box-shadow: 0 0 0 0 var(--k-glow); } 50% { box-shadow: 0 0 0 8px rgba(0, 0, 0, 0); } }
+.block[data-state="done"] { border-color: var(--k); background: var(--k-bg); }
+.block[data-state="done"] .b-state { color: var(--k); animation: pop .45s ease; }
+@keyframes pop { 0% { transform: scale(.6); opacity: 0; } 60% { transform: scale(1.15); } }
+.block[data-state="skipped"] { border-style: dashed; border-color: var(--k); background: var(--k-bg); opacity: .78; }
+.block[data-state="skipped"] .b-state { color: var(--k); }
+.block[data-state="failed"] { border-color: var(--ruby); background: var(--ruby-bg); animation: shake .5s ease; }
+.block[data-state="failed"] .b-state { color: var(--ruby); }
+@keyframes shake { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+.block[data-state="undone"] { border-color: var(--violet); background: repeating-linear-gradient(135deg, var(--violet-bg) 0 10px, #21193B 10px 20px); }
+.block[data-state="undone"] .b-state { color: var(--violet); }
+.block[data-state="retrying"] { border-style: dashed; border-color: var(--jade); }
+.block[data-state="retrying"] .b-state { color: var(--jade); }
+.block[data-state="retrying"] .b-state::after { content: ""; display: inline-block; width: 10px; height: 10px; margin-left: 8px; border: 2px solid var(--jade); border-right-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -1px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.sched { display: flex; align-items: center; gap: 14px; margin: 2px 0 14px; padding: 12px 14px; border: 1px dashed var(--line); border-radius: 14px; background: var(--sunken); transition: border-color .3s ease, background .3s ease; }
+.sched-clock { position: relative; flex: none; width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--slate); transition: border-color .3s ease; }
+.sched-clock::before, .sched-clock::after { content: ""; position: absolute; left: calc(50% - 1px); top: 50%; width: 2px; border-radius: 2px; background: var(--soft); transform-origin: 50% 0; }
+.sched-clock::before { height: 11px; transform: rotate(180deg); animation: tick 12s steps(12) infinite; }
+.sched-clock::after { height: 7px; transform: rotate(270deg); }
+@keyframes tick { from { transform: rotate(180deg); } to { transform: rotate(540deg); } }
+.sched-body { flex: 1; min-width: 0; font-size: .88rem; }
+.sched-body b { font-family: var(--f-display); margin-right: 8px; }
+.sched-body b + span { color: var(--soft); }
+.sched-body code { display: table; max-width: 100%; margin-top: 4px; font-size: .76rem; overflow-wrap: anywhere; }
+.sched-body small { display: block; margin-top: 3px; color: var(--soft); font-size: .76rem; }
+.sched-status { max-width: 36ch; text-align: right; font-size: .82rem; color: var(--soft); }
+.sched[data-st="leased"] { border-color: var(--amber); }
+.sched[data-st="leased"] .sched-status { color: var(--amber); }
+.sched[data-st="found"] { border-style: solid; border-color: var(--jade); background: var(--jade-bg); }
+.sched[data-st="found"] .sched-clock { border-color: var(--jade); animation: ring .8s ease 2; }
+.sched[data-st="found"] .sched-status { color: var(--jade); font-weight: 700; }
+.sched[data-st="timer"] { border-color: var(--cobalt); }
+.sched[data-st="timer"] .sched-status { color: var(--cobalt); }
+@keyframes ring { 30% { transform: rotate(-14deg) scale(1.08); } 60% { transform: rotate(12deg) scale(1.08); } }
+.wire { height: 4px; border-radius: 4px; background: var(--line); margin: 0 3px; transition: background .3s ease; }
+.wire[data-flow="done"] { background: var(--jade); opacity: .55; }
+.wire[data-flow="fwd"] { background: repeating-linear-gradient(90deg, var(--jade) 0 8px, transparent 8px 14px); background-size: 28px 100%; animation: flow .55s linear infinite; }
+.wire[data-flow="back"] { background: repeating-linear-gradient(90deg, var(--violet) 0 8px, transparent 8px 14px); background-size: 28px 100%; animation: flow .55s linear infinite reverse; }
+@keyframes flow { from { background-position: 0 0; } to { background-position: 28px 0; } }
+.gate { position: relative; height: 100%; display: flex; align-items: center; }
+.gate .wire { flex: 1; }
+.gate::before { content: ""; position: absolute; left: 50%; top: 4px; bottom: 4px; border-left: 2px dashed var(--amber); opacity: .55; transform: translateX(-1px); }
+.gate[data-locked="true"]::before { border-left-style: solid; opacity: 1; }
+.gate-label { position: absolute; left: 50%; bottom: -30px; transform: translateX(-50%); white-space: nowrap; font: 700 .68rem/1 var(--f-display); letter-spacing: .08em; text-transform: uppercase; color: var(--amber); }
+.gate[data-locked="true"] .gate-label::before { content: "🔒 "; }
+.panels { display: grid; grid-template-columns: 1fr 1.35fr 1fr; gap: 14px; margin-top: 8px; }
+.panel { background: var(--sunken); border: 1px solid var(--line); border-radius: 14px; padding: 16px; min-width: 0; }
+.panel h3 { font-size: .98rem; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.panel h3 small { font: 400 .78rem/1 var(--f-body); color: var(--soft); }
+.panel .note { margin: 10px 0 0; color: var(--soft); font-size: .8rem; }
+.wpill { display: inline-block; margin-top: 12px; padding: 4px 11px; border-radius: 999px; font-size: .8rem; font-weight: 700; background: var(--surface); color: var(--soft); border: 1px solid var(--line); }
+.wpill[data-st="working"] { color: var(--cobalt); border-color: var(--cobalt); }
+.wpill[data-st="dead"] { color: var(--ruby); border-color: var(--ruby); background: var(--ruby-bg); }
+.wpill[data-st="waiting"] { color: var(--amber); border-color: var(--amber); }
+.wpill[data-st="done"] { color: var(--jade); border-color: var(--jade); background: var(--jade-bg); }
+.wpill[data-st="compensated"] { color: var(--violet); border-color: var(--violet); background: var(--violet-bg); }
+.mem { margin: 10px 0 0; font-size: .88rem; }
+.nb-head { margin: 10px 0 8px; font-size: .82rem; color: var(--soft); }
+.nb-row { display: grid; grid-template-columns: 22px minmax(0, 1fr) minmax(0, 1fr); gap: 8px; align-items: center; padding: 7px 8px; border-radius: 8px; font-size: .8rem; }
+.nb-row + .nb-row { border-top: 1px solid var(--line); }
+.nb-row.flash { animation: rowflash 1.1s ease; }
+@keyframes rowflash { from { background: rgba(61, 214, 160, .18); } }
+.nb-mark { font-weight: 700; text-align: center; color: var(--slate); }
+.nb-row[data-st="done"] .nb-mark { color: var(--jade); }
+.nb-row[data-st="failed"] .nb-mark { color: var(--ruby); }
+.nb-row[data-st="undone"] .nb-mark { color: var(--violet); }
+.nb-row[data-st="retry"] .nb-mark { color: var(--amber); }
+.nb-key { font-family: var(--f-mono); overflow-wrap: anywhere; }
+.nb-key small { display: block; color: var(--soft); font-size: .7rem; }
+.nb-res { font-family: var(--f-mono); color: var(--soft); overflow-wrap: anywhere; }
+.world { margin: 10px 0 0; display: grid; gap: 6px; }
+.world div { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: .86rem; }
+.world dt { color: var(--soft); }
+.world dd { margin: 0; font: 700 1.2rem/1 var(--f-mono); display: inline-block; }
+.world dd.bump { animation: bump .65s ease; }
+@keyframes bump { 30% { transform: scale(1.45); color: var(--amber); } }
+.wnote { margin: 10px 0 0; font-size: .8rem; color: var(--jade); min-height: 1.2em; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 18px; }
+.controls button { border: 1px solid var(--line); background: var(--sunken); border-radius: 10px; padding: 8px 14px; font-size: .9rem; cursor: pointer; }
+.controls button:hover:not(:disabled) { border-color: var(--slate); }
+.controls button:disabled { opacity: .4; cursor: default; }
+.controls .play { background: var(--ink); color: var(--bg); border-color: var(--ink); font-weight: 700; min-width: 9.5em; }
+.progress { margin-left: auto; color: var(--soft); font-size: .84rem; }
+.blackout { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; background: rgba(5, 8, 16, .9); color: var(--ruby); font: 800 clamp(1.4rem, 4vw, 2.2rem)/1 var(--f-display); letter-spacing: .02em; opacity: 0; pointer-events: none; }
+.sim.is-crash .blackout { animation: blackout 1.7s ease forwards; }
+.sim.is-crash { animation: jolt .35s ease; }
+@keyframes blackout { 0% { opacity: 0; } 8%, 62% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes jolt { 25% { transform: translate(-3px, 2px); } 50% { transform: translate(3px, -2px); } 75% { transform: translate(-2px, 1px); } }
+@media (max-width: 900px) { .panels { grid-template-columns: 1fr 1fr; } .panel.notebook { grid-column: 1 / -1; order: -1; } }
+@media (max-width: 720px) {
+  .sim { padding: 16px; }
+  .track { grid-template-columns: 1fr; gap: 0; padding-bottom: 6px; }
+  .block { min-height: 0; flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; padding: 9px 12px; }
+  .b-num { width: 100%; }
+  .b-call { display: none; }
+  .b-state { margin: 0 0 0 auto; }
+  .wire { width: 4px; height: 18px; margin: 3px auto; }
+  .wire[data-flow="fwd"], .wire[data-flow="back"] { background: var(--jade); animation: none; }
+  .wire[data-flow="back"] { background: var(--violet); }
+  .gate { height: auto; flex-direction: column; padding: 4px 0 6px; }
+  .gate::before { left: 0; right: 0; top: 50%; bottom: auto; border-left: 0; border-top: 2px dashed var(--amber); transform: none; }
+  .gate[data-locked="true"]::before { border-top-style: solid; }
+  .gate-label { position: relative; left: auto; bottom: auto; transform: none; background: rgba(21, 29, 51, 1); padding: 0 8px; margin-top: -8px; }
+  .panels { grid-template-columns: 1fr; }
+  .sched { flex-wrap: wrap; }
+  .sched-status { max-width: none; width: 100%; text-align: left; }
+  .nb-row { grid-template-columns: 22px minmax(0, 1fr); row-gap: 2px; }
+  .nb-res { grid-column: 2; }
+  .progress { margin-left: 0; width: 100%; }
+}
+
+/* Code */
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: -1px; position: relative; z-index: 1; }
+.tabs button { border: 1px solid var(--line); border-bottom: 0; background: transparent; color: var(--soft); border-radius: 12px 12px 0 0; padding: 9px 16px; font-size: .9rem; cursor: pointer; }
+.tabs button[aria-selected="true"] { background: var(--sunken); color: var(--ink); font-weight: 700; }
+.code { background: var(--sunken); border: 1px solid var(--line); border-radius: 0 14px 14px 14px; overflow: hidden; }
+.code-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); font: .8rem/1 var(--f-mono); color: var(--soft); }
+.code pre { margin: 0; padding: 18px; overflow-x: auto; font-size: .86rem; line-height: 1.65; tab-size: 2; }
+.code-note { margin: 14px 0 0; color: var(--soft); font-size: .92rem; }
+.k { color: #FF8FA3; } .s { color: #A5E8C8; } .y { color: var(--amber); } .c { color: #6F7A99; font-style: italic; } .n { color: var(--cobalt); } .o { color: var(--violet); }
+
+/* Building blocks */
+.grid6 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+.piece { border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; background: rgba(21, 29, 51, .6); }
+.piece code { background: none; border: 0; padding: 0; font-size: .95rem; color: var(--c); font-weight: 700; }
+.piece p { margin: 6px 0 0; color: var(--soft); font-size: .94rem; }
+.more { display: inline-block; margin-top: 22px; font-weight: 700; text-decoration: none; }
+
+/* Dashboard */
+.shots { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.shots figure { margin: 0; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: var(--sunken); transition: transform .3s ease, box-shadow .3s ease; }
+.shots figure:hover { transform: translateY(-4px) rotate(-.3deg); box-shadow: 0 24px 60px rgba(0, 0, 0, .45); }
+.shots figure:first-child { grid-column: 1 / -1; }
+.shots a { display: block; }
+.shots figcaption { padding: 10px 14px; font-size: .86rem; color: var(--soft); border-top: 1px solid var(--line); }
+@media (max-width: 760px) { .shots { grid-template-columns: 1fr; } }
+
+/* Compare */
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: .94rem; }
+th, td { text-align: left; padding: 13px 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 700 .76rem/1.2 var(--f-display); text-transform: uppercase; letter-spacing: .08em; color: var(--soft); background: var(--sunken); }
+tr:last-child td { border-bottom: 0; }
+tr.us td { background: rgba(61, 214, 160, .08); font-weight: 700; }
+tr.us td:first-child { color: var(--jade); }
+
+/* Install */
+.install { display: grid; grid-template-columns: 1.1fr 1fr; gap: 28px; align-items: start; }
+.steps { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; counter-reset: step; }
+.steps li { counter-increment: step; display: flex; align-items: center; gap: 12px; }
+.steps li::before { content: counter(step); flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--jade-bg); color: var(--jade); font: 700 .85rem/1 var(--f-display); }
+.steps .cmd { flex: 1; min-width: 0; justify-content: space-between; }
+.req { margin-top: 18px; color: var(--soft); font-size: .9rem; }
+@media (max-width: 860px) { .install { grid-template-columns: 1fr; } }
+
+/* Footer */
+footer { border-top: 1px solid var(--line); padding: 34px 0 46px; color: var(--soft); font-size: .9rem; }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 14px 26px; align-items: center; }
+footer nav { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-left: auto; }
+footer a { color: var(--soft); text-decoration: none; }
+footer a:hover { color: var(--ink); }
+
+@media (max-width: 560px) { section { padding: 64px 0; } .hero { padding-top: 48px; } .cmd code { font-size: .8rem; } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  .js .reveal { opacity: 1; transform: none; }
+}
+</style>
+</head>
+<body>
+<div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#top"><span class="mark" aria-hidden="true"><i></i><i></i><i></i></span>ActiveDurable</a>
+    <nav class="nav" aria-label="Sections">
+      <a href="#why" data-t="nav.why">Why</a>
+      <a href="#try" data-t="nav.try">Simulator</a>
+      <a href="#code" data-t="nav.code">Code</a>
+      <a href="#install" data-t="nav.install">Install</a>
+    </nav>
+    <div class="lang" role="group" aria-label="Language" data-t-label="lang.label">
+      <button type="button" data-lang="en" aria-pressed="true">EN</button>
+      <button type="button" data-lang="es" aria-pressed="false">ES</button>
+    </div>
+    <a class="gh" href="https://github.com/webresstudio/active_durable" aria-label="GitHub"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <div class="wrap">
+      <div class="badges">
+        <span class="pill"><b>◆</b><span data-t="hero.eyebrow">Ruby gem for Rails</span></span>
+        <img src="https://img.shields.io/gem/v/active_durable?label=gem&color=3DD6A0&labelColor=151D33" alt="Latest version on RubyGems" width="96" height="20">
+      </div>
+      <h1 data-th="hero.title">Finish the work, <em>or undo it in order.</em></h1>
+      <p class="lede" data-t="hero.lede">Durable sagas stored in your own database. Finished steps are never repeated, a step that fails for good undoes the rest in reverse, and a crash halfway loses nothing.</p>
+      <div class="cta">
+        <div class="cmd"><code>bundle add active_durable</code><button type="button" class="copy" data-copy="bundle add active_durable" data-t="copy">Copy</button></div>
+        <a class="btn primary" href="#try" data-t="hero.try">Try the simulator</a>
+        <a class="btn" href="https://github.com/webresstudio/active_durable" data-t="hero.github">View on GitHub</a>
+      </div>
+      <div class="facts"><span>Ruby 3.1+</span><span>Rails 6.1+</span><span>PostgreSQL · MySQL · SQLite</span><span data-t="fact.redis">No Redis, no extra servers</span></div>
+      <div class="stage reveal">
+        <img src="assets/hero.svg" data-src-en="assets/hero.svg" data-src-es="assets/hero.es.svg" width="1200" height="380" alt="Animation: a checkout runs step by step, the server dies, and a new worker continues from the notebook" data-t-alt="hero.alt">
+      </div>
+    </div>
+  </section>
+
+  <section id="why">
+    <div class="wrap">
+      <div class="head reveal">
+        <p class="eyebrow" data-t="why.eyebrow">The problem</p>
+        <h2 data-t="why.title">A ROLLBACK cannot reach Stripe.</h2>
+        <p class="lede" data-th="why.lede">A checkout reserves stock, charges a card, ships a parcel and sends an email. <code>ActiveRecord::Base.transaction</code> can roll back your tables, but not the charge. If the server dies after it, or the carrier refuses the parcel, you end up with money taken and no order.</p>
+      </div>
+      <div class="cards">
+        <article class="card reveal">
+          <div class="icon" style="--c: var(--jade); --c-bg: var(--jade-bg)"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg></div>
+          <h3 data-t="why.1.title">Nothing is done twice</h3>
+          <p data-t="why.1.text">Every finished step is written down. After a crash, another worker continues where the first one stopped.</p>
+        </article>
+        <article class="card reveal">
+          <div class="icon" style="--c: var(--violet); --c-bg: var(--violet-bg)"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 010 10h-3"/></svg></div>
+          <h3 data-t="why.2.title">Nothing is left half done</h3>
+          <p data-t="why.2.text">If a step fails for good, the steps that finished are undone, last one first.</p>
+        </article>
+        <article class="card reveal">
+          <div class="icon" style="--c: var(--amber); --c-bg: var(--amber-bg)"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg></div>
+          <h3 data-t="why.3.title">Some things cannot be undone</h3>
+          <p data-t="why.3.text">Mark the point of no return. After it, steps are retried instead.</p>
+        </article>
+        <article class="card reveal">
+          <div class="icon" style="--c: var(--cobalt); --c-bg: var(--cobalt-bg)"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6"/><path d="M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3"/></svg></div>
+          <h3 data-t="why.4.title">Nothing extra to run</h3>
+          <p data-t="why.4.text">Active Record and Active Job. No Redis, no workflow server.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section id="try">
+    <div class="wrap">
+      <div class="head reveal">
+        <p class="eyebrow" data-t="try.eyebrow">Try it</p>
+        <h2 data-t="try.title">A checkout in four steps</h2>
+        <p class="lede" data-t="try.lede">Pick what goes wrong and press Play. Watch the steps, the notebook that lives in your database, and how many times the outside world was touched.</p>
+      </div>
+      <div class="legend">
+        <span><i style="--c: var(--cobalt); --c-bg: var(--cobalt-bg)"></i><span data-t="legend.undo">Can be undone</span></span>
+        <span><i style="--c: var(--amber); --c-bg: var(--amber-bg)"></i><span data-t="legend.pivot">Point of no return</span></span>
+        <span><i style="--c: var(--jade); --c-bg: var(--jade-bg)"></i><span data-t="legend.retry">Retried</span></span>
+      </div>
+      <div class="sim reveal" id="sim">
+        <div class="scenarios" id="scenarios" role="group" aria-label="Scenarios"></div>
+        <p class="narration" id="narration" aria-live="polite"></p>
+        <div class="track" id="track"></div>
+        <div class="sched" id="sched" data-st="idle">
+          <span class="sched-clock" aria-hidden="true"></span>
+          <div class="sched-body">
+            <b data-t="sched.title">Sweeper</b><span data-t="sched.every">every minute</span>
+            <code>ActiveDurable::SweepJob</code>
+            <small data-t="sched.via">Scheduled by Solid Queue (config/recurring.yml), sidekiq-cron, GoodJob cron or cron.</small>
+          </div>
+          <span class="sched-status" id="sched-status" aria-live="polite"></span>
+        </div>
+        <div class="panels">
+          <div class="panel">
+            <h3><span data-t="panel.worker">Worker</span> <span id="worker-n">#1</span></h3>
+            <span class="wpill" id="worker-pill" data-st="idle"></span>
+            <p class="mem" id="worker-mem"></p>
+            <p class="note" data-t="panel.worker.note">What a worker remembers is lost if the server dies.</p>
+          </div>
+          <div class="panel notebook">
+            <h3><span data-t="panel.notebook">Notebook</span> <small data-t="panel.notebook.sub">a table in your database</small></h3>
+            <p class="nb-head" id="nb-head"></p>
+            <div id="nb-rows"></div>
+          </div>
+          <div class="panel">
+            <h3 data-t="panel.world">Outside world</h3>
+            <dl class="world">
+              <div><dt data-t="world.charges">Stripe charges</dt><dd id="w-charges">0</dd></div>
+              <div><dt data-t="world.refunds">Refunds</dt><dd id="w-refunds">0</dd></div>
+              <div><dt data-t="world.stock">Stock reserved</dt><dd id="w-stock">0</dd></div>
+              <div><dt data-t="world.parcels">Parcels shipped</dt><dd id="w-parcels">0</dd></div>
+              <div><dt data-t="world.emails">Emails sent</dt><dd id="w-emails">0</dd></div>
+            </dl>
+            <p class="wnote" id="w-note"></p>
+          </div>
+        </div>
+        <div class="controls">
+          <button type="button" id="b-prev" data-t="ctl.back">◀ Back</button>
+          <button type="button" id="b-play" class="play">▶ Play</button>
+          <button type="button" id="b-next" data-t="ctl.next">Next ▶</button>
+          <button type="button" id="b-reset" data-t="ctl.reset">↺ Reset</button>
+          <span class="progress" id="progress"></span>
+        </div>
+        <div class="blackout" id="blackout" aria-hidden="true" data-t="crash">⚡ Server down</div>
+        <noscript><p>The simulator needs JavaScript.</p></noscript>
+      </div>
+    </div>
+  </section>
+
+  <section id="code">
+    <div class="wrap">
+      <div class="head reveal">
+        <p class="eyebrow" data-t="code.eyebrow">The code</p>
+        <h2 data-t="code.title">Write the recipe once</h2>
+        <p class="lede" data-t="code.lede">Each step is a block. Its undo sits on the same line, and the Stripe calls live in a plain module, doing and undoing side by side.</p>
+      </div>
+      <div class="reveal">
+        <div class="tabs" role="tablist" aria-label="Code examples">
+          <button type="button" role="tab" id="tab-recipe" aria-controls="panel-code" aria-selected="true" data-tab="recipe" data-t="tab.recipe">The recipe</button>
+          <button type="button" role="tab" id="tab-service" aria-controls="panel-code" aria-selected="false" data-tab="service" data-t="tab.service">The service</button>
+          <button type="button" role="tab" id="tab-start" aria-controls="panel-code" aria-selected="false" data-tab="start" data-t="tab.start">Start it</button>
+          <button type="button" role="tab" id="tab-test" aria-controls="panel-code" aria-selected="false" data-tab="test" data-t="tab.test">Test it</button>
+        </div>
+        <div class="code" id="panel-code" role="tabpanel" aria-labelledby="tab-recipe">
+          <div class="code-bar"><span id="code-file">app/sagas/checkout_saga.rb</span><button type="button" class="copy" id="code-copy" data-t="copy">Copy</button></div>
+          <pre><code id="code-body"></code></pre>
+        </div>
+        <p class="code-note" id="code-note"></p>
+      </div>
+    </div>
+  </section>
+
+  <section id="blocks">
+    <div class="wrap">
+      <div class="head reveal">
+        <p class="eyebrow" data-t="blocks.eyebrow">Building blocks</p>
+        <h2 data-t="blocks.title">Everything a saga needs</h2>
+      </div>
+      <div class="grid6">
+        <div class="piece reveal" style="--c: var(--cobalt)"><code>flow.step</code><p data-t="b.step">Talks to the outside world, with a ticket to use as idempotency key.</p></div>
+        <div class="piece reveal" style="--c: var(--cobalt)"><code>flow.transaction</code><p data-t="b.transaction">Touches only your database and commits with its checkpoint: exactly once.</p></div>
+        <div class="piece reveal" style="--c: var(--amber)"><code>flow.pivot</code><p data-t="b.pivot">The point of no return. Before it, failures are undone; after it, retried.</p></div>
+        <div class="piece reveal" style="--c: var(--violet)"><code>flow.parallel</code><p data-t="b.parallel">Several steps at once, each with its own row, ticket and retries.</p></div>
+        <div class="piece reveal" style="--c: var(--jade)"><code>flow.sleep</code><p data-t="b.sleep">Waits hours or days without holding a worker.</p></div>
+        <div class="piece reveal" style="--c: var(--jade)"><code>flow.wait_for</code><p data-t="b.wait">Waits for Durable.signal from a webhook, with a timeout.</p></div>
+      </div>
+      <a class="more" href="https://github.com/webresstudio/active_durable/blob/main/README.md#the-building-blocks" data-readme="the-building-blocks|las-piezas" data-t="blocks.more">All the details in the README →</a>
+    </div>
+  </section>
+
+  <section id="dashboard">
+    <div class="wrap">
+      <div class="head reveal">
+        <p class="eyebrow" data-t="dash.eyebrow">Dashboard</p>
+        <h2 data-t="dash.title">Every saga, as a row of blocks</h2>
+        <p class="lede" data-t="dash.lede">A running step beats, a waiting one pings like a radar, a sleeping one fills a ring until it wakes, and undone ones are wired backwards. Retry, undo everything or run a saga again from any step.</p>
+      </div>
+      <div class="shots reveal">
+        <figure><a href="assets/dashboard-saga.png"><img src="assets/dashboard-saga.png" width="2880" height="1640" loading="lazy" alt="One saga, step by step" data-t-alt="dash.saga"></a><figcaption data-t="dash.saga">One saga, step by step</figcaption></figure>
+        <figure><a href="assets/dashboard-list.png"><img src="assets/dashboard-list.png" width="2880" height="1640" loading="lazy" alt="Executions by status" data-t-alt="dash.list"></a><figcaption data-t="dash.list">Executions by status</figcaption></figure>
+        <figure><a href="assets/dashboard-undone.png"><img src="assets/dashboard-undone.png" width="2880" height="1640" loading="lazy" alt="Undone in reverse" data-t-alt="dash.undone"></a><figcaption data-t="dash.undone">Undone in reverse</figcaption></figure>
+      </div>
+    </div>
+  </section>
+
+  <section id="compare">
+    <div class="wrap">
+      <div class="head reveal">
+        <p class="eyebrow" data-t="cmp.eyebrow">How it compares</p>
+        <h2 data-t="cmp.title">Your database, undo included</h2>
+      </div>
+      <div class="table-wrap reveal">
+        <table>
+          <thead><tr><th></th><th data-t="cmp.h.where">Keeps progress in</th><th data-t="cmp.h.undo">Undoes steps</th><th data-t="cmp.h.needs">Needs</th></tr></thead>
+          <tbody>
+            <tr><td>Active Job Continuations (Rails 8.1)</td><td data-t="cmp.r1.where">the job (a cursor)</td><td data-t="cmp.no">no</td><td data-t="cmp.nothing">nothing extra</td></tr>
+            <tr><td>ChronoForge</td><td data-t="cmp.db">your database</td><td data-t="cmp.r2.undo">not in its docs</td><td data-t="cmp.nothing">nothing extra</td></tr>
+            <tr><td>ruby_reactor</td><td>Redis</td><td data-t="cmp.yes">yes</td><td data-t="cmp.r3.needs">Redis and Sidekiq</td></tr>
+            <tr><td>Temporal</td><td data-t="cmp.r4.where">the Temporal server</td><td data-t="cmp.r4.undo">written by hand</td><td data-t="cmp.r4.needs">a Temporal cluster</td></tr>
+            <tr class="us"><td>ActiveDurable</td><td data-t="cmp.db">your database</td><td data-t="cmp.us.undo">yes, in reverse, with a point of no return</td><td data-t="cmp.nothing">nothing extra</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="install">
+    <div class="wrap install">
+      <div class="reveal">
+        <p class="eyebrow" data-t="install.eyebrow">Install</p>
+        <h2 data-t="install.title">Three commands, then your first saga</h2>
+        <p class="lede" data-t="install.lede">The step-by-step guide sets up the rest of a Rails app: job backend, sweeper, initializer, dashboard and tests.</p>
+        <p class="req" data-t="install.req">Ruby 3.1+ · Rails 6.1 to 8.1 · PostgreSQL, MySQL or SQLite</p>
+      </div>
+      <div class="reveal">
+        <ol class="steps">
+          <li><div class="cmd"><code>bundle add active_durable</code><button type="button" class="copy" data-copy="bundle add active_durable" data-t="copy">Copy</button></div></li>
+          <li><div class="cmd"><code>bin/rails generate active_durable:install</code><button type="button" class="copy" data-copy="bin/rails generate active_durable:install" data-t="copy">Copy</button></div></li>
+          <li><div class="cmd"><code>bin/rails db:migrate</code><button type="button" class="copy" data-copy="bin/rails db:migrate" data-t="copy">Copy</button></div></li>
+        </ol>
+        <a class="btn primary" style="margin-top: 22px" href="https://github.com/webresstudio/active_durable/blob/main/README.md#in-a-rails-app" data-readme="in-a-rails-app|en-una-app-rails" data-t="install.guide">Set up a Rails app →</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span><span data-t="footer.license">MIT license</span> · <span data-t="footer.by">Made by William Romero at Webres Studio.</span></span>
+    <nav aria-label="Links">
+      <a href="https://github.com/webresstudio/active_durable">GitHub</a>
+      <a href="https://rubygems.org/gems/active_durable">RubyGems</a>
+      <a href="https://github.com/webresstudio/active_durable/blob/main/CHANGELOG.md" data-t="footer.changelog">Changelog</a>
+      <a href="https://rubydoc.info/gems/active_durable" data-t="footer.docs">API docs</a>
+    </nav>
+  </div>
+</footer>
+
+<script type="application/json" id="i18n">
+{
+  "en": {
+    "meta.title": "ActiveDurable · Durable sagas for Rails",
+    "meta.description": "Finish the work or undo it in order, even if the server dies. Durable sagas for Rails, stored in your own database.",
+    "nav.why": "Why",
+    "nav.try": "Simulator",
+    "nav.code": "Code",
+    "nav.install": "Install",
+    "lang.label": "Language",
+    "hero.eyebrow": "Ruby gem for Rails",
+    "hero.title": "Finish the work, <em>or undo it in order.</em>",
+    "hero.lede": "Durable sagas stored in your own database. Finished steps are never repeated, a step that fails for good undoes the rest in reverse, and a crash halfway loses nothing.",
+    "hero.try": "Try the simulator",
+    "hero.github": "View on GitHub",
+    "hero.alt": "Animation: a checkout runs step by step, the server dies, and a new worker continues from the notebook",
+    "copy": "Copy",
+    "copied": "Copied",
+    "fact.redis": "No Redis, no extra servers",
+    "why.eyebrow": "The problem",
+    "why.title": "A ROLLBACK cannot reach Stripe.",
+    "why.lede": "A checkout reserves stock, charges a card, ships a parcel and sends an email. <code>ActiveRecord::Base.transaction</code> can roll back your tables, but not the charge. If the server dies after it, or the carrier refuses the parcel, you end up with money taken and no order.",
+    "why.1.title": "Nothing is done twice",
+    "why.1.text": "Every finished step is written down. After a crash, another worker continues where the first one stopped.",
+    "why.2.title": "Nothing is left half done",
+    "why.2.text": "If a step fails for good, the steps that finished are undone, last one first.",
+    "why.3.title": "Some things cannot be undone",
+    "why.3.text": "Mark the point of no return. After it, steps are retried instead.",
+    "why.4.title": "Nothing extra to run",
+    "why.4.text": "Active Record and Active Job. No Redis, no workflow server.",
+    "try.eyebrow": "Try it",
+    "try.title": "A checkout in four steps",
+    "try.lede": "Pick what goes wrong and press Play. Watch the steps, the notebook that lives in your database, and how many times the outside world was touched.",
+    "legend.undo": "Can be undone",
+    "legend.pivot": "Point of no return",
+    "legend.retry": "Retried",
+    "sc.ok": "All good",
+    "sc.crash": "Server dies",
+    "sc.worst": "Worst moment",
+    "sc.undo": "Carrier refuses",
+    "sc.retry": "Email server down",
+    "sc.declined": "Card declined",
+    "step.reserve": "Reserve stock",
+    "step.charge": "Charge card",
+    "step.dispatch": "Ship parcel",
+    "step.email": "Confirmation email",
+    "step.n": "Step {n}",
+    "state.pending": "Pending",
+    "state.running": "Running…",
+    "state.done": "✔ Done",
+    "state.skipped": "⏭ Already done",
+    "state.failed": "✖ Failed",
+    "state.undone": "↩ Undone",
+    "state.retrying": "Retrying",
+    "gate": "point of no return",
+    "panel.worker": "Worker",
+    "panel.worker.note": "What a worker remembers is lost if the server dies.",
+    "worker.idle": "Waiting for work",
+    "worker.working": "Working",
+    "worker.dead": "Dead",
+    "worker.waiting": "Asleep until the retry",
+    "worker.done": "Finished",
+    "worker.compensated": "Undid everything",
+    "mem.empty": "Memory: empty",
+    "mem.wiped": "Memory: wiped",
+    "mem.at": "Memory: at step {n}",
+    "mem.sleep": "Memory: free. The saga is just a row in a table.",
+    "mem.free": "Memory: free",
+    "panel.notebook": "Notebook",
+    "panel.notebook.sub": "a table in your database",
+    "nb.row": "The saga's row:",
+    "nb.saved": "✔ saved with the order",
+    "panel.world": "Outside world",
+    "world.charges": "Stripe charges",
+    "world.refunds": "Refunds",
+    "world.stock": "Stock reserved",
+    "world.parcels": "Parcels shipped",
+    "world.emails": "Emails sent",
+    "ctl.back": "◀ Back",
+    "ctl.next": "Next ▶",
+    "ctl.play": "▶ Play",
+    "ctl.pause": "⏸ Pause",
+    "ctl.again": "↺ Play again",
+    "ctl.reset": "↺ Reset",
+    "ctl.progress": "Moment {n} of {total}",
+    "ctl.hint": "Press Play or Next.",
+    "crash": "⚡ Server down",
+    "res.refunded": "refunded",
+    "res.released": "stock released",
+    "res.refused": "refused: invalid address",
+    "res.retry1": "failed · retry with backoff",
+    "res.retry2": "failed again · waiting longer",
+    "res.declined": "card declined",
+    "note.ticket": "Same ticket: Stripe returned the first receipt",
+    "sched.title": "Sweeper",
+    "sched.every": "every minute",
+    "sched.via": "Scheduled by Solid Queue (config/recurring.yml), sidekiq-cron, GoodJob cron or cron.",
+    "sched.idle": "Nothing to pick up.",
+    "sched.leased": "Skips checkout-7: its lease has not expired yet.",
+    "sched.found": "Found checkout-7 with nobody on it → enqueued ActiveDurable::RunJob.",
+    "sched.timer": "Not needed: the retry is a job scheduled with wait_until.",
+    "sim.lease": "Nothing happens yet: the dead worker's lease is still valid (5 minutes by default), so the sweeper leaves the saga alone.",
+    "sim.sweep": "The lease expires. On its next run, the sweeper (ActiveDurable::SweepJob, which your scheduler runs every minute) finds the saga with nobody on it and enqueues it again.",
+    "sim.o1": "The controller saves the order and the saga's row in the same COMMIT. If the server dies now, nothing is lost.",
+    "sim.o2": "A worker takes the saga and opens its notebook. It is empty, so it starts at step 1.",
+    "sim.o3": "Step 1 is a flow.transaction: it reserves the stock and writes ✔ in the same database transaction.",
+    "sim.o4": "Done: the stock and its ✔ were saved together, exactly once.",
+    "sim.o5": "Step 2 calls Stripe with the ticket checkout-7:charge as its idempotency key.",
+    "sim.charged": "Stripe charges the card. The worker writes ✔ and the receipt in the notebook.",
+    "sim.ship": "Step 3 ships the parcel: the point of no return.",
+    "sim.shipped": "The parcel left. From here on nothing is undone; failures are retried.",
+    "sim.email": "Step 4 sends the confirmation email.",
+    "sim.ok.intro": "Nothing fails. Watch what the notebook records at each step.",
+    "sim.ok.end": "Saga completed: one charge, one parcel, one email.",
+    "sim.crash.intro": "The server dies right after step 2. Watch Stripe: it does not charge twice.",
+    "sim.crash.dies": "The server dies. The worker's memory is gone, but the notebook is safe in the database.",
+    "sim.crash.revive": "Worker #2 takes that job. It remembers nothing, so it runs the recipe from the top.",
+    "sim.crash.skip1": "Step 1 already has ✔: it is skipped and its recorded result is used.",
+    "sim.crash.skip2": "Step 2 already has ✔: no second charge.",
+    "sim.crash.continue": "Step 3 has no ✔: this is where it continues.",
+    "sim.crash.end": "Saga completed. Stripe charged once.",
+    "sim.worst.intro": "The server dies after Stripe charges but before ✔ is written. This is what the ticket is for.",
+    "sim.worst.charged": "Stripe charges. The receipt travels back to the worker…",
+    "sim.worst.dies": "…and the server dies before writing ✔. The notebook does not know Stripe charged.",
+    "sim.worst.revive": "Worker #2 takes the job and runs the recipe from the top.",
+    "sim.worst.skip1": "Step 1 has ✔: skipped.",
+    "sim.worst.again": "Step 2 has no ✔, so it runs again with the same ticket: checkout-7:charge.",
+    "sim.worst.same": "Stripe recognizes the ticket and returns the first receipt. Charges stay at 1.",
+    "sim.worst.end": "Saga completed. One charge, although step 2 ran twice.",
+    "sim.undo.intro": "The carrier refuses the parcel. It never left, so everything is undone in reverse.",
+    "sim.undo.try": "Step 3 tries to ship the parcel.",
+    "sim.undo.refused": "The carrier refuses: the address does not exist. The point of no return was never passed, so the saga undoes.",
+    "sim.undo.refund": "Undo in reverse, last step first: a refund on Stripe, with its own ticket.",
+    "sim.undo.release": "Then step 1: the stock is released.",
+    "sim.undo.end": "Saga compensated: everything is as before. The notebook keeps what was done and undone.",
+    "sim.retry.intro": "The email fails, but the parcel already left. Nothing is undone: the step is retried.",
+    "sim.retry.try": "Step 4 tries to send the email…",
+    "sim.retry.fail1": "The mail server does not answer. The gem enqueues the saga's job again with wait_until, so your queue wakes it after the backoff; meanwhile it sleeps and holds no worker.",
+    "sim.retry.fail2": "The retry fails too. The next one waits longer.",
+    "sim.retry.end": "The next retry gets through. Saga completed, and nobody was refunded.",
+    "sim.declined.intro": "Stripe declines the card. Retrying will not help, so the recipe calls flow.abort!.",
+    "sim.declined.fail": "Stripe answers: card declined. Nothing was charged.",
+    "sim.declined.abort": "flow.abort! skips the retries and goes straight to undoing what was done.",
+    "sim.declined.release": "Step 1 is undone: the stock is released.",
+    "sim.declined.end": "Saga compensated. No charge, no refund needed, and the stock is back.",
+    "code.eyebrow": "The code",
+    "code.title": "Write the recipe once",
+    "code.lede": "Each step is a block. Its undo sits on the same line, and the Stripe calls live in a plain module, doing and undoing side by side.",
+    "tab.recipe": "The recipe",
+    "tab.service": "The service",
+    "tab.start": "Start it",
+    "tab.test": "Test it",
+    "note.recipe": "Put each recipe in app/sagas/, assigned to a constant named after it: :checkout lives in CheckoutSaga.",
+    "note.service": "Plain Ruby: it does not know about the gem, so you can test it alone and reuse it, for example for a manual refund.",
+    "note.start": "Call it from your controller. It answers right away; a job runs the steps.",
+    "note.test": "The crash tester kills the saga at every point where a process could die, then finishes it with a new worker.",
+    "c.db": "Only your database: committed with its checkpoint, so it runs exactly once.",
+    "c.out": "The outside world: the ticket is an idempotency key that never changes.",
+    "c.declined": "no retries: undo what was done",
+    "c.pivot": "The point of no return: after it, steps are retried, never undone.",
+    "c.json": "written in the notebook",
+    "c.together": "Saved with the order; its job is enqueued after the commit.",
+    "c.once": "one charge, wherever it crashed",
+    "blocks.eyebrow": "Building blocks",
+    "blocks.title": "Everything a saga needs",
+    "b.step": "Talks to the outside world, with a ticket to use as idempotency key.",
+    "b.transaction": "Touches only your database and commits with its checkpoint: exactly once.",
+    "b.pivot": "The point of no return. Before it, failures are undone; after it, retried.",
+    "b.parallel": "Several steps at once, each with its own row, ticket and retries.",
+    "b.sleep": "Waits hours or days without holding a worker.",
+    "b.wait": "Waits for Durable.signal from a webhook, with a timeout.",
+    "blocks.more": "All the details in the README →",
+    "dash.eyebrow": "Dashboard",
+    "dash.title": "Every saga, as a row of blocks",
+    "dash.lede": "A running step beats, a waiting one pings like a radar, a sleeping one fills a ring until it wakes, and undone ones are wired backwards. Retry, undo everything or run a saga again from any step.",
+    "dash.list": "Executions by status",
+    "dash.saga": "One saga, step by step",
+    "dash.undone": "Undone in reverse",
+    "cmp.eyebrow": "How it compares",
+    "cmp.title": "Your database, undo included",
+    "cmp.h.where": "Keeps progress in",
+    "cmp.h.undo": "Undoes steps",
+    "cmp.h.needs": "Needs",
+    "cmp.r1.where": "the job (a cursor)",
+    "cmp.no": "no",
+    "cmp.nothing": "nothing extra",
+    "cmp.db": "your database",
+    "cmp.r2.undo": "not in its docs",
+    "cmp.yes": "yes",
+    "cmp.r3.needs": "Redis and Sidekiq",
+    "cmp.r4.where": "the Temporal server",
+    "cmp.r4.undo": "written by hand",
+    "cmp.r4.needs": "a Temporal cluster",
+    "cmp.us.undo": "yes, in reverse, with a point of no return",
+    "install.eyebrow": "Install",
+    "install.title": "Three commands, then your first saga",
+    "install.lede": "The step-by-step guide sets up the rest of a Rails app: job backend, sweeper, initializer, dashboard and tests.",
+    "install.req": "Ruby 3.1+ · Rails 6.1 to 8.1 · PostgreSQL, MySQL or SQLite",
+    "install.guide": "Set up a Rails app →",
+    "footer.license": "MIT license",
+    "footer.by": "Made by William Romero at Webres Studio.",
+    "footer.changelog": "Changelog",
+    "footer.docs": "API docs"
+  },
+  "es": {
+    "meta.title": "ActiveDurable · Sagas durables para Rails",
+    "meta.description": "Termina el trabajo o deshazlo en orden, aunque el servidor se apague. Sagas durables para Rails, guardadas en tu propia base de datos.",
+    "nav.why": "Por qué",
+    "nav.try": "Simulador",
+    "nav.code": "Código",
+    "nav.install": "Instalar",
+    "lang.label": "Idioma",
+    "hero.eyebrow": "Gema de Ruby para Rails",
+    "hero.title": "Termina el trabajo, <em>o deshazlo en orden.</em>",
+    "hero.lede": "Sagas durables guardadas en tu propia base de datos. Los pasos terminados nunca se repiten, un paso que falla del todo deshace los demás en reversa, y un apagón a la mitad no pierde nada.",
+    "hero.try": "Prueba el simulador",
+    "hero.github": "Ver en GitHub",
+    "hero.alt": "Animación: una compra corre paso a paso, el servidor se apaga y un worker nuevo sigue desde el cuaderno",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "fact.redis": "Sin Redis ni servidores extra",
+    "why.eyebrow": "El problema",
+    "why.title": "Un ROLLBACK no llega hasta Stripe.",
+    "why.lede": "Una compra aparta stock, cobra una tarjeta, despacha un paquete y manda un email. <code>ActiveRecord::Base.transaction</code> puede deshacer tus tablas, pero no el cobro. Si el servidor se apaga después de cobrar, o la paquetería rechaza el envío, te quedas con el dinero cobrado y sin pedido.",
+    "why.1.title": "Nada se hace dos veces",
+    "why.1.text": "Cada paso terminado queda anotado. Después de un apagón, otro worker sigue donde se quedó el primero.",
+    "why.2.title": "Nada queda a medias",
+    "why.2.text": "Si un paso falla del todo, los pasos que terminaron se deshacen, del último al primero.",
+    "why.3.title": "Hay cosas que no se deshacen",
+    "why.3.text": "Marca el punto de no retorno. Después de él, los pasos se reintentan.",
+    "why.4.title": "Nada extra que correr",
+    "why.4.text": "Active Record y Active Job. Sin Redis, sin servidor de workflows.",
+    "try.eyebrow": "Pruébalo",
+    "try.title": "Una compra en cuatro pasos",
+    "try.lede": "Elige qué sale mal y pulsa Reproducir. Mira los pasos, el cuaderno que vive en tu base de datos y cuántas veces se tocó el mundo de fuera.",
+    "legend.undo": "Se puede deshacer",
+    "legend.pivot": "Punto de no retorno",
+    "legend.retry": "Se reintenta",
+    "sc.ok": "Todo bien",
+    "sc.crash": "Se apaga el servidor",
+    "sc.worst": "El peor momento",
+    "sc.undo": "Rechazan el envío",
+    "sc.retry": "Se cae el correo",
+    "sc.declined": "Tarjeta rechazada",
+    "step.reserve": "Apartar stock",
+    "step.charge": "Cobrar tarjeta",
+    "step.dispatch": "Despachar paquete",
+    "step.email": "Email de confirmación",
+    "step.n": "Paso {n}",
+    "state.pending": "Pendiente",
+    "state.running": "Ejecutando…",
+    "state.done": "✔ Hecho",
+    "state.skipped": "⏭ Ya estaba hecho",
+    "state.failed": "✖ Falló",
+    "state.undone": "↩ Deshecho",
+    "state.retrying": "Reintentando",
+    "gate": "punto de no retorno",
+    "panel.worker": "Worker",
+    "panel.worker.note": "Lo que un worker recuerda se pierde si el servidor se apaga.",
+    "worker.idle": "Esperando trabajo",
+    "worker.working": "Trabajando",
+    "worker.dead": "Apagado",
+    "worker.waiting": "Dormido hasta el reintento",
+    "worker.done": "Terminó",
+    "worker.compensated": "Deshizo todo",
+    "mem.empty": "Memoria: vacía",
+    "mem.wiped": "Memoria: borrada",
+    "mem.at": "Memoria: va en el paso {n}",
+    "mem.sleep": "Memoria: libre. La saga es solo una fila en una tabla.",
+    "mem.free": "Memoria: libre",
+    "panel.notebook": "Cuaderno",
+    "panel.notebook.sub": "una tabla en tu base de datos",
+    "nb.row": "La fila de la saga:",
+    "nb.saved": "✔ guardada junto con el pedido",
+    "panel.world": "Mundo de fuera",
+    "world.charges": "Cobros en Stripe",
+    "world.refunds": "Reembolsos",
+    "world.stock": "Stock apartado",
+    "world.parcels": "Paquetes enviados",
+    "world.emails": "Emails enviados",
+    "ctl.back": "◀ Atrás",
+    "ctl.next": "Siguiente ▶",
+    "ctl.play": "▶ Reproducir",
+    "ctl.pause": "⏸ Pausa",
+    "ctl.again": "↺ Ver otra vez",
+    "ctl.reset": "↺ Reiniciar",
+    "ctl.progress": "Momento {n} de {total}",
+    "ctl.hint": "Pulsa Reproducir o Siguiente.",
+    "crash": "⚡ Servidor apagado",
+    "res.refunded": "reembolsado",
+    "res.released": "stock liberado",
+    "res.refused": "rechazado: dirección inválida",
+    "res.retry1": "falló · reintento con espera",
+    "res.retry2": "falló otra vez · espera más",
+    "res.declined": "tarjeta rechazada",
+    "note.ticket": "Mismo ticket: Stripe devolvió el primer recibo",
+    "sched.title": "Barrendero",
+    "sched.every": "cada minuto",
+    "sched.via": "Lo programa Solid Queue (config/recurring.yml), sidekiq-cron, GoodJob cron o cron.",
+    "sched.idle": "Nada que recoger.",
+    "sched.leased": "Se salta checkout-7: su lease todavía no vence.",
+    "sched.found": "Encontró checkout-7 sin nadie trabajándola → encoló ActiveDurable::RunJob.",
+    "sched.timer": "No hace falta: el reintento es un job programado con wait_until.",
+    "sim.lease": "Todavía no pasa nada: el lease del worker muerto sigue vigente (5 minutos por defecto), así que el barrendero no toca la saga.",
+    "sim.sweep": "El lease vence. En su siguiente pasada, el barrendero (ActiveDurable::SweepJob, que tu planificador corre cada minuto) encuentra la saga sin nadie trabajándola y la vuelve a encolar.",
+    "sim.o1": "El controller guarda el pedido y la fila de la saga en el mismo COMMIT. Si el servidor se apaga ahora, no se pierde nada.",
+    "sim.o2": "Un worker toma la saga y abre su cuaderno. Está vacío, así que empieza por el paso 1.",
+    "sim.o3": "El paso 1 es un flow.transaction: aparta el stock y anota ✔ en la misma transacción de base de datos.",
+    "sim.o4": "Listo: el stock y su ✔ se guardaron juntos, exactamente una vez.",
+    "sim.o5": "El paso 2 llama a Stripe con el ticket checkout-7:charge como llave de idempotencia.",
+    "sim.charged": "Stripe cobra la tarjeta. El worker anota ✔ y el recibo en el cuaderno.",
+    "sim.ship": "El paso 3 despacha el paquete: el punto de no retorno.",
+    "sim.shipped": "El paquete salió. Desde aquí nada se deshace; los fallos se reintentan.",
+    "sim.email": "El paso 4 manda el email de confirmación.",
+    "sim.ok.intro": "Nada falla. Mira qué anota el cuaderno en cada paso.",
+    "sim.ok.end": "Saga completada: un cobro, un paquete, un email.",
+    "sim.crash.intro": "El servidor se apaga justo después del paso 2. Mira Stripe: no cobra dos veces.",
+    "sim.crash.dies": "Se apaga el servidor. La memoria del worker se pierde, pero el cuaderno sigue a salvo en la base de datos.",
+    "sim.crash.revive": "El worker #2 toma ese job. No recuerda nada, así que corre la receta desde arriba.",
+    "sim.crash.skip1": "El paso 1 ya tiene ✔: se salta y se usa el resultado anotado.",
+    "sim.crash.skip2": "El paso 2 ya tiene ✔: no hay un segundo cobro.",
+    "sim.crash.continue": "El paso 3 no tiene ✔: aquí continúa.",
+    "sim.crash.end": "Saga completada. Stripe cobró una sola vez.",
+    "sim.worst.intro": "El servidor se apaga después de que Stripe cobra, pero antes de anotar ✔. Para esto sirve el ticket.",
+    "sim.worst.charged": "Stripe cobra. El recibo viaja de vuelta al worker…",
+    "sim.worst.dies": "…y el servidor se apaga antes de anotar ✔. El cuaderno no sabe que Stripe ya cobró.",
+    "sim.worst.revive": "El worker #2 toma el job y corre la receta desde arriba.",
+    "sim.worst.skip1": "El paso 1 tiene ✔: se salta.",
+    "sim.worst.again": "El paso 2 no tiene ✔, así que corre otra vez con el mismo ticket: checkout-7:charge.",
+    "sim.worst.same": "Stripe reconoce el ticket y devuelve el primer recibo. Los cobros siguen en 1.",
+    "sim.worst.end": "Saga completada. Un solo cobro, aunque el paso 2 corrió dos veces.",
+    "sim.undo.intro": "La paquetería rechaza el envío. El paquete nunca salió, así que todo se deshace en reversa.",
+    "sim.undo.try": "El paso 3 intenta despachar el paquete.",
+    "sim.undo.refused": "La paquetería lo rechaza: la dirección no existe. Nunca se pasó el punto de no retorno, así que la saga deshace.",
+    "sim.undo.refund": "Se deshace en reversa, del último paso al primero: un reembolso en Stripe, con su propio ticket.",
+    "sim.undo.release": "Luego el paso 1: se libera el stock.",
+    "sim.undo.end": "Saga deshecha: todo quedó como antes. El cuaderno guarda qué se hizo y qué se deshizo.",
+    "sim.retry.intro": "Falla el email, pero el paquete ya salió. No se deshace nada: el paso se reintenta.",
+    "sim.retry.try": "El paso 4 intenta mandar el email…",
+    "sim.retry.fail1": "El servidor de correo no responde. La gema vuelve a encolar el job de la saga con wait_until, así que tu cola la despierta después de la espera; mientras tanto duerme y no ocupa ningún worker.",
+    "sim.retry.fail2": "El reintento también falla. El siguiente espera más.",
+    "sim.retry.end": "El siguiente reintento pasa. Saga completada, sin reembolsarle a nadie.",
+    "sim.declined.intro": "Stripe rechaza la tarjeta. Reintentar no sirve, así que la receta llama a flow.abort!.",
+    "sim.declined.fail": "Stripe responde: tarjeta rechazada. No se cobró nada.",
+    "sim.declined.abort": "flow.abort! se salta los reintentos y pasa directo a deshacer lo hecho.",
+    "sim.declined.release": "Se deshace el paso 1: se libera el stock.",
+    "sim.declined.end": "Saga deshecha. Sin cobro, sin reembolso que hacer, y el stock de vuelta.",
+    "code.eyebrow": "El código",
+    "code.title": "Escribe la receta una vez",
+    "code.lede": "Cada paso es un bloque. Su deshacer va en la misma línea, y las llamadas a Stripe viven en un módulo normal, con el hacer y el deshacer uno junto al otro.",
+    "tab.recipe": "La receta",
+    "tab.service": "El service",
+    "tab.start": "Arráncala",
+    "tab.test": "Pruébala",
+    "note.recipe": "Cada receta va en app/sagas/, asignada a una constante con su nombre: :checkout vive en CheckoutSaga.",
+    "note.service": "Ruby normal: no sabe nada de la gema, así que lo pruebas solo y lo reusas, por ejemplo para un reembolso manual.",
+    "note.start": "Llámalo desde tu controller. Responde en seguida; un job corre los pasos.",
+    "note.test": "El probador de apagones apaga la saga en cada punto donde un proceso podría morir y la termina con un worker nuevo.",
+    "c.db": "Solo tu base de datos: se confirma junto con su anotación, así que ocurre exactamente una vez.",
+    "c.out": "El mundo de fuera: el ticket es una llave de idempotencia que nunca cambia.",
+    "c.declined": "sin reintentos: deshace lo hecho",
+    "c.pivot": "El punto de no retorno: después de él, los pasos se reintentan, nunca se deshacen.",
+    "c.json": "se anota en el cuaderno",
+    "c.together": "Se guarda con el pedido; su job se encola después del COMMIT.",
+    "c.once": "un cobro, se haya apagado donde se haya apagado",
+    "blocks.eyebrow": "Las piezas",
+    "blocks.title": "Todo lo que una saga necesita",
+    "b.step": "Habla con el mundo de fuera, con un ticket para usar como llave de idempotencia.",
+    "b.transaction": "Solo toca tu base de datos y se confirma junto con su anotación: exactamente una vez.",
+    "b.pivot": "El punto de no retorno. Antes de él, los fallos se deshacen; después, se reintentan.",
+    "b.parallel": "Varios pasos a la vez, cada uno con su fila, su ticket y sus reintentos.",
+    "b.sleep": "Espera horas o días sin ocupar un worker.",
+    "b.wait": "Espera un Durable.signal desde un webhook, con tiempo límite.",
+    "blocks.more": "Todos los detalles en el README →",
+    "dash.eyebrow": "Dashboard",
+    "dash.title": "Cada saga, como una fila de bloques",
+    "dash.lede": "Un paso que corre late, uno que espera hace ping como un radar, uno que duerme llena un anillo hasta despertar, y los deshechos se conectan hacia atrás. Reintenta, deshaz todo o vuelve a correr una saga desde cualquier paso.",
+    "dash.list": "Ejecuciones por estado",
+    "dash.saga": "Una saga, paso a paso",
+    "dash.undone": "Deshecha en reversa",
+    "cmp.eyebrow": "Cómo se compara",
+    "cmp.title": "Tu base de datos, con deshacer incluido",
+    "cmp.h.where": "Guarda el progreso en",
+    "cmp.h.undo": "Deshace pasos",
+    "cmp.h.needs": "Necesita",
+    "cmp.r1.where": "el propio job (un cursor)",
+    "cmp.no": "no",
+    "cmp.nothing": "nada extra",
+    "cmp.db": "tu base de datos",
+    "cmp.r2.undo": "no aparece en su documentación",
+    "cmp.yes": "sí",
+    "cmp.r3.needs": "Redis y Sidekiq",
+    "cmp.r4.where": "el servidor de Temporal",
+    "cmp.r4.undo": "programado a mano",
+    "cmp.r4.needs": "un clúster de Temporal",
+    "cmp.us.undo": "sí, en reversa y con punto de no retorno",
+    "install.eyebrow": "Instalar",
+    "install.title": "Tres comandos, y luego tu primera saga",
+    "install.lede": "La guía paso a paso configura el resto de una app Rails: backend de jobs, barrendero, initializer, dashboard y pruebas.",
+    "install.req": "Ruby 3.1+ · Rails 6.1 a 8.1 · PostgreSQL, MySQL o SQLite",
+    "install.guide": "Configurar una app Rails →",
+    "footer.license": "Licencia MIT",
+    "footer.by": "Hecho por William Romero en Webres Studio.",
+    "footer.changelog": "Changelog",
+    "footer.docs": "Docs de la API"
+  }
+}
+</script>
+
+<script>
+(function () {
+  "use strict";
+  var root = document.documentElement;
+  root.classList.add("js");
+  var I18N = JSON.parse(document.getElementById("i18n").textContent);
+  var REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var README = { en: "https://github.com/webresstudio/active_durable/blob/main/README.md", es: "https://github.com/webresstudio/active_durable/blob/main/README.es.md" };
+  var $ = function (id) { return document.getElementById(id); };
+  var each = function (selector, fn) { Array.prototype.forEach.call(document.querySelectorAll(selector), fn); };
+
+  // Language: ?lang=es, then the last choice, then the browser's language.
+  function store(value) { try { if (value) localStorage.setItem("ad-lang", value); return localStorage.getItem("ad-lang"); } catch (e) { return null; } }
+  var lang = new URLSearchParams(location.search).get("lang") || store() || ((navigator.language || "en").toLowerCase().indexOf("es") === 0 ? "es" : "en");
+  if (!I18N[lang]) lang = "en";
+
+  function t(key, vars) {
+    var text = I18N[lang][key];
+    if (text === undefined) text = I18N.en[key];
+    if (text === undefined) return key;
+    return text.replace(/\{(\w+)\}/g, function (match, name) { return vars && name in vars ? vars[name] : match; });
+  }
+  function resolve(value) { return value.charAt(0) === "@" ? t(value.slice(1)) : value; }
+
+  function applyLanguage() {
+    root.lang = lang;
+    document.title = t("meta.title");
+    document.querySelector('meta[name="description"]').setAttribute("content", t("meta.description"));
+    each("[data-t]", function (el) { el.textContent = t(el.dataset.t); });
+    each("[data-th]", function (el) { el.innerHTML = t(el.dataset.th); });
+    each("[data-t-alt]", function (el) { el.alt = t(el.dataset.tAlt); });
+    each("[data-t-label]", function (el) { el.setAttribute("aria-label", t(el.dataset.tLabel)); });
+    each("[data-src-" + lang + "]", function (el) { el.src = el.getAttribute("data-src-" + lang); });
+    each("[data-readme]", function (el) {
+      var anchors = el.dataset.readme.split("|");
+      el.href = README[lang] + "#" + (lang === "es" ? anchors[1] : anchors[0]);
+    });
+    each("[data-lang]", function (el) { el.setAttribute("aria-pressed", el.dataset.lang === lang ? "true" : "false"); });
+    renderCode();
+    sim.render();
+  }
+  each("[data-lang]", function (el) {
+    el.addEventListener("click", function () { lang = el.dataset.lang; store(lang); applyLanguage(); });
+  });
+
+  // Copy buttons.
+  function copy(text, button) {
+    var done = function () {
+      button.textContent = t("copied"); button.classList.add("ok");
+      setTimeout(function () { button.textContent = t("copy"); button.classList.remove("ok"); }, 1400);
+    };
+    try { navigator.clipboard.writeText(text).then(done, function () {}); } catch (e) { /* no clipboard: nothing to do */ }
+  }
+  each("[data-copy]", function (el) { el.addEventListener("click", function () { copy(el.dataset.copy, el); }); });
+
+  // Code examples. {{key}} becomes a translated comment.
+  var CODE = {
+    recipe: { file: "app/sagas/checkout_saga.rb", note: "note.recipe", text: [
+      "CheckoutSaga = Durable.define(:checkout) do |flow, order_id:|",
+      "  order = Order.find(order_id)",
+      "",
+      "  # {{c.db}}",
+      "  flow.transaction :reserve_stock, undo: -> { order.release_stock! } do",
+      "    order.reserve_stock!",
+      "    { \"reserved\" => true }",
+      "  end",
+      "",
+      "  # {{c.out}}",
+      "  payment = flow.step :charge, undo: ->(charge, ticket) { Payments.refund(charge, ticket) } do |ticket|",
+      "    Payments.charge(order, ticket)",
+      "  rescue Stripe::CardError => e",
+      "    flow.abort!(e.message) # {{c.declined}}",
+      "  end",
+      "",
+      "  # {{c.pivot}}",
+      "  flow.pivot :dispatch do |ticket|",
+      "    { \"tracking\" => Carrier.ship(order.id, reference: ticket).tracking_number, \"payment\" => payment[\"id\"] }",
+      "  end",
+      "",
+      "  flow.step(:confirmation_email) { OrderMailer.shipped(order.id).deliver_now && true }",
+      "end"
+    ] },
+    service: { file: "app/services/payments.rb", note: "note.service", text: [
+      "module Payments",
+      "  def self.charge(order, ticket)",
+      "    intent = Stripe::PaymentIntent.create(",
+      "      { amount: order.total_cents, currency: \"usd\", customer: order.user.stripe_id, confirm: true },",
+      "      { idempotency_key: ticket }",
+      "    )",
+      "    { \"id\" => intent.id } # {{c.json}}",
+      "  end",
+      "",
+      "  def self.refund(charge, ticket)",
+      "    Stripe::Refund.create({ payment_intent: charge[\"id\"] }, { idempotency_key: ticket })",
+      "  end",
+      "end"
+    ] },
+    start: { file: "app/services/place_order.rb", note: "note.start", text: [
+      "class PlaceOrder",
+      "  def self.call(params)",
+      "    Order.transaction do",
+      "      order = Order.create!(params)",
+      "      # {{c.together}}",
+      "      Durable.start(:checkout, id: \"checkout-#{order.id}\", order_id: order.id)",
+      "      order",
+      "    end",
+      "  end",
+      "end"
+    ] },
+    test: { file: "spec/sagas/checkout_saga_spec.rb", note: "note.test", text: [
+      "require \"active_durable/testing\"",
+      "",
+      "it \"survives a crash at any point\" do",
+      "  ActiveDurable::Testing.crash_everywhere(:checkout, order_id: order.id) do |execution, point|",
+      "    expect(execution.status).to eq(\"completed\")",
+      "    expect(FakeStripe.charges.size).to eq(1) # {{c.once}}",
+      "  end",
+      "end"
+    ] }
+  };
+  var RUBY = /(#(?!\{)[^\n]*)|("(?:[^"\\\n]|\\.)*")|(:[a-z_]\w*[?!]?)|\b([a-z_]\w*:)(?!:)|\b(do|end|def|module|class|rescue|require|self|true|false|nil|if|unless|return)\b|\b([A-Z]\w*)|(->|=>|&&)/g;
+  var CLASSES = [null, "c", "s", "y", "y", "k", "n", "o"];
+  function escape(text) { return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+  function highlight(source) {
+    var html = "", last = 0, match;
+    RUBY.lastIndex = 0;
+    while ((match = RUBY.exec(source))) {
+      html += escape(source.slice(last, match.index));
+      for (var group = 1; group < match.length; group++) {
+        if (match[group] !== undefined) { html += '<span class="' + CLASSES[group] + '">' + escape(match[0]) + "</span>"; break; }
+      }
+      last = RUBY.lastIndex;
+    }
+    return html + escape(source.slice(last));
+  }
+  var tab = "recipe", plain = "";
+  function renderCode() {
+    var example = CODE[tab];
+    plain = example.text.join("\n").replace(/\{\{([\w.]+)\}\}/g, function (match, key) { return t(key); });
+    $("code-body").innerHTML = highlight(plain);
+    $("code-file").textContent = example.file;
+    $("code-note").textContent = t(example.note);
+    each("[data-tab]", function (el) { el.setAttribute("aria-selected", el.dataset.tab === tab ? "true" : "false"); });
+    $("panel-code").setAttribute("aria-labelledby", "tab-" + tab);
+  }
+  each("[data-tab]", function (el) { el.addEventListener("click", function () { tab = el.dataset.tab; renderCode(); }); });
+  $("code-copy").addEventListener("click", function () { copy(plain, $("code-copy")); });
+
+  // The simulator: a list of moments per scenario. Each moment changes the state; rendering draws it.
+  var sim = (function () {
+    var STEPS = [
+      { key: "reserve_stock", name: "step.reserve", kind: "undo", call: "flow.transaction :reserve_stock" },
+      { key: "charge", name: "step.charge", kind: "undo", call: "flow.step :charge" },
+      { key: "dispatch", name: "step.dispatch", kind: "pivot", call: "flow.pivot :dispatch" },
+      { key: "confirmation_email", name: "step.email", kind: "retry", call: "flow.step :confirmation_email" }
+    ];
+    var MARK = { pending: "—", done: "✔", failed: "✖", undone: "↩", retry: "⟳" };
+
+    function initial() {
+      return {
+        blocks: STEPS.map(function () { return "pending"; }),
+        notes: STEPS.map(function () { return { st: "pending", res: "" }; }),
+        worker: { st: "idle", at: -1, n: 1 },
+        world: { charges: 0, refunds: 0, stock: 0, parcels: 0, emails: 0 },
+        row: false, crash: false, note: "", sched: "idle"
+      };
+    }
+    function run(i) { return function (s) { s.blocks[i] = "running"; s.worker.st = "working"; s.worker.at = i; }; }
+    function done(i, res, effect) { return function (s) { s.blocks[i] = "done"; s.notes[i] = { st: "done", res: res }; if (effect) effect(s.world); }; }
+    function skip(i) { return function (s) { s.blocks[i] = "skipped"; s.worker.at = i; }; }
+    function fail(i, res) { return function (s) { s.blocks[i] = "failed"; s.notes[i] = { st: "failed", res: res }; }; }
+    function undo(i, res, effect) { return function (s) { s.blocks[i] = "undone"; s.notes[i] = { st: "undone", res: res }; s.worker.st = "working"; s.worker.at = i; if (effect) effect(s.world); }; }
+    function retry(i, res) { return function (s) { s.blocks[i] = "retrying"; s.notes[i] = { st: "retry", res: res }; s.worker.st = "waiting"; s.worker.at = -1; }; }
+    function end(st) { return function (s) { s.worker.st = st; s.worker.at = -1; }; }
+    function note(text) { return function (s) { s.note = text; }; }
+    function sched(st) { return function (s) { s.sched = st; }; }
+    function saveRow(s) { s.row = true; }
+    function start(s) { s.worker.st = "working"; s.worker.at = 0; }
+    function crash(s) {
+      s.worker = { st: "dead", at: -1, n: s.worker.n };
+      s.blocks = s.blocks.map(function (b) { return b === "running" ? "pending" : b; });
+      s.crash = true;
+    }
+    function revive(s) { s.worker = { st: "working", at: 0, n: s.worker.n + 1 }; }
+
+    var RESERVED = '{"reserved": true}', RECEIPT = '{"id": "pi_381"}', TRACKING = '{"tracking": "MX-5521"}', SENT = '{"sent": true}';
+    function opening() {
+      return [
+        { t: "sim.o1", f: [saveRow] },
+        { t: "sim.o2", f: [start] },
+        { t: "sim.o3", f: [run(0)] },
+        { t: "sim.o4", f: [done(0, RESERVED, function (w) { w.stock = 1; })] },
+        { t: "sim.o5", f: [run(1)] }
+      ];
+    }
+    var charged = { t: "sim.charged", f: [done(1, RECEIPT, function (w) { w.charges = 1; })] };
+    var ship = { t: "sim.ship", f: [run(2)] };
+    var shipped = { t: "sim.shipped", f: [done(2, TRACKING, function (w) { w.parcels = 1; })] };
+    var emailed = done(3, SENT, function (w) { w.emails = 1; });
+    var lease = { t: "sim.lease", f: [sched("leased")] };
+    var sweep = { t: "sim.sweep", f: [sched("found")] };
+
+    var SCENARIOS = [
+      { id: "ok", intro: "sim.ok.intro", frames: opening().concat([
+        charged, ship, shipped,
+        { t: "sim.email", f: [run(3)] },
+        { t: "sim.ok.end", f: [emailed, end("done")] }
+      ]) },
+      { id: "crash", intro: "sim.crash.intro", frames: opening().concat([
+        charged,
+        { t: "sim.crash.dies", f: [crash] },
+        lease, sweep,
+        { t: "sim.crash.revive", f: [revive, sched("idle")] },
+        { t: "sim.crash.skip1", f: [skip(0)] },
+        { t: "sim.crash.skip2", f: [skip(1)] },
+        { t: "sim.crash.continue", f: [run(2)] },
+        shipped,
+        { t: "sim.crash.end", f: [emailed, end("done")] }
+      ]) },
+      { id: "worst", intro: "sim.worst.intro", frames: opening().concat([
+        { t: "sim.worst.charged", f: [function (s) { s.world.charges = 1; }] },
+        { t: "sim.worst.dies", f: [crash] },
+        lease, sweep,
+        { t: "sim.worst.revive", f: [revive, sched("idle")] },
+        { t: "sim.worst.skip1", f: [skip(0)] },
+        { t: "sim.worst.again", f: [run(1)] },
+        { t: "sim.worst.same", f: [note("@note.ticket"), done(1, RECEIPT)] },
+        ship,
+        { t: "sim.worst.end", f: [done(2, TRACKING, function (w) { w.parcels = 1; }), emailed, end("done")] }
+      ]) },
+      { id: "undo", intro: "sim.undo.intro", frames: opening().concat([
+        charged,
+        { t: "sim.undo.try", f: [run(2)] },
+        { t: "sim.undo.refused", f: [fail(2, "@res.refused")] },
+        { t: "sim.undo.refund", f: [undo(1, "@res.refunded", function (w) { w.refunds = 1; })] },
+        { t: "sim.undo.release", f: [undo(0, "@res.released", function (w) { w.stock = 0; })] },
+        { t: "sim.undo.end", f: [end("compensated")] }
+      ]) },
+      { id: "retry", intro: "sim.retry.intro", frames: opening().concat([
+        charged, ship, shipped,
+        { t: "sim.retry.try", f: [run(3)] },
+        { t: "sim.retry.fail1", f: [retry(3, "@res.retry1"), sched("timer")] },
+        { t: "sim.retry.fail2", f: [retry(3, "@res.retry2")] },
+        { t: "sim.retry.end", f: [run(3), emailed, end("done"), sched("idle")] }
+      ]) },
+      { id: "declined", intro: "sim.declined.intro", frames: opening().concat([
+        { t: "sim.declined.fail", f: [fail(1, "@res.declined")] },
+        { t: "sim.declined.abort", f: [] },
+        { t: "sim.declined.release", f: [undo(0, "@res.released", function (w) { w.stock = 0; })] },
+        { t: "sim.declined.end", f: [end("compensated")] }
+      ]) }
+    ];
+
+    var box = $("sim"), track = $("track"), rows = $("nb-rows"), chips = $("scenarios");
+    var current = 1, idx = -1, timer = null, shown = -2, previous = null;
+
+    STEPS.forEach(function (step, i) {
+      if (i > 0) {
+        var link = document.createElement("div");
+        if (i === 3) {
+          link.className = "gate";
+          link.innerHTML = '<div class="wire"></div><span class="gate-label"></span>';
+        } else {
+          link.className = "wire";
+        }
+        track.appendChild(link);
+      }
+      var block = document.createElement("div");
+      block.className = "block"; block.dataset.kind = step.kind; block.dataset.state = "pending";
+      block.innerHTML = '<span class="b-num"></span><span class="b-name"></span><code class="b-call">' + step.call + '</code><span class="b-state"></span>';
+      track.appendChild(block);
+      var row = document.createElement("div");
+      row.className = "nb-row";
+      row.innerHTML = '<span class="nb-mark"></span><span class="nb-key">' + step.key + "<small>checkout-7:" + step.key + '</small></span><span class="nb-res"></span>';
+      rows.appendChild(row);
+    });
+    SCENARIOS.forEach(function (scenario, k) {
+      var button = document.createElement("button");
+      button.type = "button"; button.dataset.k = k;
+      button.addEventListener("click", function () { stop(); current = k; idx = -1; render(); });
+      chips.appendChild(button);
+    });
+
+    function stateAt(i) {
+      var s = initial();
+      for (var k = 0; k <= i; k++) {
+        s.crash = false;
+        SCENARIOS[current].frames[k].f.forEach(function (fn) { fn(s); });
+      }
+      return s;
+    }
+    function wireFlow(s, i) {
+      var a = s.blocks[i], b = s.blocks[i + 1];
+      if (b === "undone" || (a === "undone" && b === "failed")) return "back";
+      if (a === "undone") return "back";
+      if (b === "running" || b === "retrying") return "fwd";
+      if ((a === "done" || a === "skipped") && b !== "pending") return "done";
+      return "idle";
+    }
+
+    function render() {
+      var scenario = SCENARIOS[current];
+      var s = stateAt(idx);
+      var fresh = shown !== current * 1000 + idx;
+      Array.prototype.forEach.call(chips.children, function (button, k) {
+        button.textContent = t("sc." + SCENARIOS[k].id);
+        button.setAttribute("aria-pressed", k === current ? "true" : "false");
+      });
+      var narration = $("narration");
+      narration.textContent = idx < 0 ? t(scenario.intro) + " " + t("ctl.hint") : t(scenario.frames[idx].t);
+      if (fresh) { narration.classList.remove("fresh"); void narration.offsetWidth; narration.classList.add("fresh"); }
+
+      var blocks = track.querySelectorAll(".block");
+      Array.prototype.forEach.call(blocks, function (block, i) {
+        block.dataset.state = s.blocks[i];
+        block.querySelector(".b-num").textContent = t("step.n", { n: i + 1 });
+        block.querySelector(".b-name").textContent = t(STEPS[i].name);
+        block.querySelector(".b-state").textContent = t("state." + s.blocks[i]);
+      });
+      var links = track.querySelectorAll(":scope > .wire, :scope > .gate");
+      Array.prototype.forEach.call(links, function (link, i) {
+        var wire = link.classList.contains("gate") ? link.querySelector(".wire") : link;
+        wire.dataset.flow = wireFlow(s, i);
+        if (link.classList.contains("gate")) {
+          link.dataset.locked = s.blocks[2] === "done" || s.blocks[2] === "skipped" ? "true" : "false";
+          link.querySelector(".gate-label").textContent = t("gate");
+        }
+      });
+
+      Array.prototype.forEach.call(rows.children, function (row, i) {
+        var n = s.notes[i];
+        var changed = fresh && previous && (previous.notes[i].st !== n.st || previous.notes[i].res !== n.res);
+        row.dataset.st = n.st;
+        row.querySelector(".nb-mark").textContent = MARK[n.st];
+        row.querySelector(".nb-res").textContent = n.res ? resolve(n.res) : "";
+        if (changed) { row.classList.remove("flash"); void row.offsetWidth; row.classList.add("flash"); }
+      });
+      $("nb-head").textContent = t("nb.row") + " " + (s.row ? t("nb.saved") : "—");
+
+      var pill = $("worker-pill");
+      pill.dataset.st = s.worker.st; pill.textContent = t("worker." + s.worker.st);
+      $("worker-n").textContent = "#" + s.worker.n;
+      var memory;
+      if (s.worker.st === "dead") memory = t("mem.wiped");
+      else if (s.worker.st === "working" && s.worker.at >= 0) memory = t("mem.at", { n: s.worker.at + 1 });
+      else if (s.worker.st === "waiting") memory = t("mem.sleep");
+      else if (s.worker.st === "idle") memory = t("mem.empty");
+      else memory = t("mem.free");
+      $("worker-mem").textContent = memory;
+
+      ["charges", "refunds", "stock", "parcels", "emails"].forEach(function (key) {
+        var cell = $("w-" + key);
+        cell.textContent = s.world[key];
+        if (fresh && previous && previous.world[key] !== s.world[key]) { cell.classList.remove("bump"); void cell.offsetWidth; cell.classList.add("bump"); }
+      });
+      $("w-note").textContent = s.note ? resolve(s.note) : "";
+      $("sched").dataset.st = s.sched;
+      $("sched-status").textContent = t("sched." + s.sched);
+
+      if (fresh && s.crash) { box.classList.remove("is-crash"); void box.offsetWidth; box.classList.add("is-crash"); }
+      var last = scenario.frames.length - 1;
+      $("progress").textContent = t("ctl.progress", { n: idx + 1, total: scenario.frames.length });
+      $("b-prev").disabled = idx < 0;
+      $("b-next").disabled = idx >= last;
+      $("b-play").textContent = timer ? t("ctl.pause") : t(idx >= last ? "ctl.again" : "ctl.play");
+      shown = current * 1000 + idx;
+      previous = s;
+    }
+
+    function stop() { if (timer) { clearInterval(timer); timer = null; } }
+    function next() {
+      var last = SCENARIOS[current].frames.length - 1;
+      if (idx < last) idx++;
+      if (idx >= last) stop();
+      render();
+    }
+    function play() {
+      if (idx >= SCENARIOS[current].frames.length - 1) idx = -1;
+      timer = setInterval(next, 2600);
+      next();
+    }
+    $("b-next").addEventListener("click", function () { stop(); next(); });
+    $("b-prev").addEventListener("click", function () { stop(); if (idx > -1) idx--; render(); });
+    $("b-reset").addEventListener("click", function () { stop(); idx = -1; render(); });
+    $("b-play").addEventListener("click", function () { if (timer) { stop(); render(); } else { play(); } });
+
+    // Play the server-dies scenario once, the first time the simulator scrolls into view.
+    if (!REDUCED && "IntersectionObserver" in window) {
+      var watcher = new IntersectionObserver(function (entries) {
+        if (entries[0].isIntersecting) { watcher.disconnect(); if (idx < 0 && !timer) play(); }
+      }, { threshold: 0.45 });
+      watcher.observe(box);
+    }
+    return { render: render };
+  })();
+
+  // Sections fade in as they scroll into view.
+  if ("IntersectionObserver" in window && !REDUCED) {
+    var reveal = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) { if (entry.isIntersecting) { entry.target.classList.add("in"); reveal.unobserve(entry.target); } });
+    }, { threshold: 0.12 });
+    each(".reveal", function (el) { reveal.observe(el); });
+  } else {
+    each(".reveal", function (el) { el.classList.add("in"); });
+  }
+
+  applyLanguage();
+})();
+</script>
+</body>
+</html>

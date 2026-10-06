@@ -11,6 +11,9 @@ regenerate the migration when upgrading.
 
 - The repository moved to [webresstudio/active_durable](https://github.com/webresstudio/active_durable). Links to the
   old address redirect.
+- A website, in English and Spanish, with an interactive simulator of a checkout: pick what goes wrong (a crash, a
+  refused parcel, a declined card…) and watch the steps, the notebook and the outside world. Source in `site/`, built
+  by `bin/site` and published to GitHub Pages by `.github/workflows/pages.yml`.
 - README: the quick start recipe reads top to bottom, with one-line undos and the Stripe calls in a `Payments`
   module where charging and refunding sit side by side. A new section, "In a Rails app", sets up a Rails app step by
   step: install, job backend, sweeper, the initializer with every setting, routes, where each piece of code goes

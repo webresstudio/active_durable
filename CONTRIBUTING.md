@@ -18,6 +18,18 @@ ruby docs/assets/generate.rb
 regenerated. It checks the structure, not the meaning, so please translate the text too. If you do not write one
 of the two languages, say so in the pull request and a maintainer will translate it.
 
+## The website
+
+`site/index.html` is published to GitHub Pages. Its texts live in the `i18n` block of that file, in English and
+Spanish; change both. Preview it with:
+
+```bash
+bin/site serve
+```
+
+`spec/site_spec.rb` fails if a string exists in one language only, if an image is missing, or if a link points to a
+README section that no longer exists.
+
 ## Before opening a pull request
 
 ```bash
