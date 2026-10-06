@@ -19,6 +19,12 @@ RSpec.describe ActiveDurable::OpenTelemetry do
     exporter.finished_spans.select { |span| span.name.start_with?(prefix) }
   end
 
+  def only_span(prefix)
+    spans = spans_named(prefix)
+    expect(spans.size).to eq(1), "expected one #{prefix} span, got #{spans.size}"
+    spans.first
+  end
+
   it "nests steps, including parallel branches in other threads, under their execution" do
     Durable.define(:reserve) do |flow|
       flow.step(:charge) { 1 }
@@ -30,7 +36,7 @@ RSpec.describe ActiveDurable::OpenTelemetry do
 
     drain(Durable.start(:reserve, id: "otel-1").id)
 
-    execution = spans_named("active_durable.execution").sole
+    execution = only_span("active_durable.execution")
     expect(execution.name).to eq("active_durable.execution reserve")
     expect(execution.attributes).to include("active_durable.execution_id" => "otel-1")
 
@@ -50,7 +56,7 @@ RSpec.describe ActiveDurable::OpenTelemetry do
 
     drain(Durable.start(:refund).id)
 
-    failed = spans_named("active_durable.step ship").sole
+    failed = only_span("active_durable.step ship")
     expect(failed.status.code).to eq(OpenTelemetry::Trace::Status::ERROR)
     expect(failed.events.map(&:name)).to include("exception")
     expect(spans_named("active_durable.undo charge").size).to eq(1)
@@ -62,6 +68,6 @@ RSpec.describe ActiveDurable::OpenTelemetry do
 
     ActiveDurable::Runner.run(Durable.start(:nap).id)
 
-    expect(spans_named("active_durable.execution").sole.status.code).not_to eq(OpenTelemetry::Trace::Status::ERROR)
+    expect(only_span("active_durable.execution").status.code).not_to eq(OpenTelemetry::Trace::Status::ERROR)
   end
 end

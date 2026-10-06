@@ -15,7 +15,7 @@ module Dummy
     config.secret_key_base = "dummy-secret-key-base-for-tests-only-#{"x" * 40}"
     config.logger = Logger.new(nil)
     config.hosts.clear
-    config.action_dispatch.show_exceptions = :none
+    config.action_dispatch.show_exceptions = Rails.gem_version >= Gem::Version.new("7.1") ? :none : false
     config.active_support.deprecation = :silence
 
     routes.append { mount ActiveDurable::Engine => "/durable" }

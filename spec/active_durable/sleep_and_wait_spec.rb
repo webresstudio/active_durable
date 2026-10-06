@@ -13,7 +13,7 @@ RSpec.describe "flow.sleep and flow.wait_for" do
     execution = ActiveDurable::Execution.find(id)
     expect(execution).to have_attributes(status: "sleeping", locked_until: nil)
     expect(execution.wake_at).to be_within(1).of(ActiveDurable.now + 3.days)
-    expect(enqueued_runs.last["scheduled_at"]).to be_present
+    expect(enqueued_runs.last.values_at("scheduled_at", :at, "at").compact).not_to be_empty # key varies by Rails
 
     expect(ActiveDurable::Runner.run(id)).to eq(:sleeping) # woken too early: goes back to sleep
     expect(FakeMailer.deliveries).to be_empty

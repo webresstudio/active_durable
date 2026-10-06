@@ -14,7 +14,8 @@ module ActiveDurable
 
     def authorize_dashboard!
       rule = ActiveDurable.config.dashboard_authorize
-      allowed = rule ? rule.call(self) : Rails.env.local? # development and test only
+      # Rails.env.local? only exists since Rails 7.1; before that it silently answers false.
+      allowed = rule ? rule.call(self) : Rails.env.development? || Rails.env.test?
       return if performed? || allowed
 
       render plain: "The ActiveDurable dashboard is closed. Set ActiveDurable.config.dashboard_authorize " \

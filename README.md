@@ -4,8 +4,8 @@
 
 <p align="center">
   <a href="https://github.com/williamromero/active_durable/actions/workflows/main.yml"><img src="https://github.com/williamromero/active_durable/actions/workflows/main.yml/badge.svg" alt="CI"></a>
-  <img src="https://img.shields.io/badge/ruby-3.1%20%E2%86%92%204.0-CC342D?logo=ruby&logoColor=white" alt="Ruby 3.1 to 4.0">
-  <img src="https://img.shields.io/badge/rails-7.1%20%E2%86%92%208.1-D30001?logo=rubyonrails&logoColor=white" alt="Rails 7.1 to 8.1">
+  <img src="https://img.shields.io/badge/ruby-3.1%2B-CC342D?logo=ruby&logoColor=white" alt="Ruby 3.1 and newer">
+  <img src="https://img.shields.io/badge/rails-6.1%2B-D30001?logo=rubyonrails&logoColor=white" alt="Rails 6.1 and newer">
   <img src="https://img.shields.io/badge/PostgreSQL%20%C2%B7%20MySQL%20%C2%B7%20SQLite-tested-3DD6A0" alt="PostgreSQL, MySQL and SQLite">
   <img src="https://img.shields.io/badge/no%20Redis-no%20extra%20servers-7EA6FF" alt="No Redis, no extra servers">
   <a href="LICENSE.txt"><img src="https://img.shields.io/badge/license-MIT-B08CFF" alt="MIT license"></a>
@@ -386,18 +386,23 @@ end
 
 ## Compatibility
 
-Every combination below runs the full test suite in CI.
+Every combination below runs the full test suite in CI, against **PostgreSQL**, **MySQL 8+** and **SQLite 3**.
 
-| | Rails 7.1 | Rails 7.2 | Rails 8.0 | Rails 8.1 |
-| --- | :---: | :---: | :---: | :---: |
-| **Ruby 3.1** | ✔ | ✔ | Rails 8 needs Ruby 3.2 | Rails 8 needs Ruby 3.2 |
-| **Ruby 3.2** | ✔ | ✔ | ✔ | ✔ |
-| **Ruby 3.3** | ✔ | ✔ | ✔ | ✔ |
-| **Ruby 3.4** | ✔ | ✔ | ✔ | ✔ |
-| **Ruby 4.0** | ✔ | ✔ | ✔ | ✔ |
+| | Rails 6.1 | Rails 7.0 | Rails 7.1 | Rails 7.2 | Rails 8.0 | Rails 8.1 |
+| --- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Ruby 3.1** | ✔ | ✔ | ✔ | ✔ | needs Ruby 3.2 | needs Ruby 3.2 |
+| **Ruby 3.2** | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| **Ruby 3.3** | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| **Ruby 3.4** | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| **Ruby 4.0** | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
 
-Each one against **PostgreSQL**, **MySQL 8+** and **SQLite 3**. On Rails 7.1 and 8.0, keep `json` below 3 in your
-app: Active Support 7.1 and 8.0 still pass an option that json 3 removed.
+Every feature works on every version. Things your app may need on older Rails, unrelated to ActiveDurable:
+
+- **MySQL on Rails 6.1 and 7.0** uses the `mysql2` adapter (`trilogy` ships with Active Record 7.1+).
+- **Rails 6.1 on Ruby 3.4+** needs `base64`, `benchmark`, `bigdecimal`, `drb`, `logger`, `mutex_m`, `observer`
+  and `ostruct` in the Gemfile: Rails 6.1 uses them, and Ruby no longer ships them by default.
+- **`unknown keyword: quirks_mode`** comes from some Active Support versions (seen with 7.1 and 8.0) and json 3:
+  add `gem "json", "< 3"`.
 
 ## How it compares
 

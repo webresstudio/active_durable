@@ -12,11 +12,11 @@ class CreateActiveDurableTables < ActiveRecord::Migration<%= migration_version %
       t.column :input, json_type
       t.column :output, json_type
       t.column :error, json_type
-      t.datetime :wake_at
-      t.datetime :locked_until
+      t.datetime :wake_at, precision: 6
+      t.datetime :locked_until, precision: 6
       t.string :lease_token
       t.string :forked_from
-      t.timestamps
+      t.timestamps precision: 6
     end
     add_index :durable_executions, %i[status wake_at]
     add_index :durable_executions, %i[recipe status]
@@ -32,8 +32,8 @@ class CreateActiveDurableTables < ActiveRecord::Migration<%= migration_version %
       t.integer :attempts, null: false, default: 0
       t.column :result, json_type
       t.column :error, json_type
-      t.datetime :wake_at
-      t.timestamps
+      t.datetime :wake_at, precision: 6
+      t.timestamps precision: 6
     end
     add_index :durable_steps, %i[execution_id name], unique: true
     add_index :durable_steps, %i[execution_id position]
@@ -44,8 +44,8 @@ class CreateActiveDurableTables < ActiveRecord::Migration<%= migration_version %
       t.string :execution_id, null: false
       t.string :name, null: false
       t.column :payload, json_type
-      t.datetime :consumed_at
-      t.datetime :created_at, null: false
+      t.datetime :consumed_at, precision: 6
+      t.datetime :created_at, null: false, precision: 6
     end
     add_index :durable_signals, %i[execution_id name consumed_at]
     add_foreign_key :durable_signals, :durable_executions, column: :execution_id, on_delete: :cascade

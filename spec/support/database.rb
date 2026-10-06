@@ -23,7 +23,7 @@ module TestDatabase
       { "adapter" => "postgresql", "database" => "active_durable_test", "host" => ENV.fetch("PGHOST", nil),
         "username" => ENV.fetch("PGUSER", nil), "password" => ENV.fetch("PGPASSWORD", nil), "pool" => 12 }.compact
     when "mysql", "trilogy"
-      { "adapter" => "trilogy", "database" => "active_durable_test",
+      { "adapter" => mysql_adapter, "database" => "active_durable_test",
         "host" => ENV.fetch("MYSQL_HOST", "127.0.0.1"), "port" => Integer(ENV.fetch("MYSQL_PORT", "3306")),
         "username" => ENV.fetch("MYSQL_USER", "root"), "password" => ENV.fetch("MYSQL_PASSWORD", nil),
         "pool" => 12 }.compact
@@ -33,6 +33,11 @@ module TestDatabase
     else
       raise ArgumentError, "unknown DB=#{adapter}; use postgresql, mysql or sqlite3"
     end
+  end
+
+  # trilogy ships with Active Record since 7.1; older versions use mysql2.
+  def mysql_adapter
+    ActiveRecord.version >= Gem::Version.new("7.1") ? "trilogy" : "mysql2"
   end
 
   def setup!

@@ -2,7 +2,6 @@
 
 # Development gems shared by every Rails version. Loaded with eval_gemfile.
 gem "pg", "~> 1.5"
-gem "trilogy", "~> 2.9"
 
 gem "opentelemetry-sdk", "~> 1.5"
 gem "puma", "~> 7.0" # bin/demo

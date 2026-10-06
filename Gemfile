@@ -9,5 +9,6 @@ gemspec
 # (BUNDLE_GEMFILE=gemfiles/rails-7.1.gemfile bundle exec rspec).
 %w[actionpack actionview activejob activerecord activesupport railties].each { |name| gem name, "~> 8.1.0" }
 gem "sqlite3", ">= 2.1"
+gem "trilogy", "~> 2.9" # MySQL
 
 eval_gemfile "gemfiles/shared.gemfile"

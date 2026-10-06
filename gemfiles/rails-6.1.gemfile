@@ -1,0 +1,21 @@
+# frozen_string_literal: true
+
+source "https://rubygems.org"
+
+gemspec path: ".."
+
+%w[actionpack actionview activejob activerecord activesupport railties].each { |name| gem name, "~> 6.1.0" }
+# Rails 6.1 requires these but does not declare them; Ruby 3.4+ no longer ships them by default.
+gem "base64"
+gem "benchmark"
+gem "bigdecimal"
+gem "drb"
+gem "json", "< 3" # Active Support 6.1 still passes quirks_mode to JSON.generate, which json 3 removed
+gem "logger"
+gem "mutex_m"
+gem "mysql2", "~> 0.5" # MySQL: trilogy only ships with Active Record 7.1+
+gem "observer"
+gem "ostruct"
+gem "sqlite3", "~> 1.4" # Active Record 6.1 does not support sqlite3 2.x
+
+eval_gemfile "shared.gemfile"

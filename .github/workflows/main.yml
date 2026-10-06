@@ -14,7 +14,7 @@ jobs:
       fail-fast: false
       matrix:
         ruby: ["3.1", "3.2", "3.3", "3.4", "4.0"]
-        rails: ["7.1", "7.2", "8.0", "8.1"]
+        rails: ["6.1", "7.0", "7.1", "7.2", "8.0", "8.1"]
         db: [postgresql, mysql, sqlite3]
         exclude: # Rails 8 needs Ruby 3.2+
           - { ruby: "3.1", rails: "8.0" }
@@ -41,6 +41,9 @@ jobs:
       MYSQL_HOST: 127.0.0.1
     steps:
       - uses: actions/checkout@v5
+      - name: MySQL client headers for mysql2 (Rails 6.1 and 7.0)
+        if: matrix.rails == '6.1' || matrix.rails == '7.0'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libmysqlclient-dev
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby }}
