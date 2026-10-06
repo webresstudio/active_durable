@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/williamromero/active_durable/actions/workflows/main.yml"><img src="https://github.com/williamromero/active_durable/actions/workflows/main.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/webresstudio/active_durable/actions/workflows/main.yml"><img src="https://github.com/webresstudio/active_durable/actions/workflows/main.yml/badge.svg" alt="CI"></a>
   <img src="https://img.shields.io/badge/ruby-3.1%2B-CC342D?logo=ruby&logoColor=white" alt="Ruby 3.1 and newer">
   <img src="https://img.shields.io/badge/rails-6.1%2B-D30001?logo=rubyonrails&logoColor=white" alt="Rails 6.1 and newer">
   <img src="https://img.shields.io/badge/PostgreSQL%20%C2%B7%20MySQL%20%C2%B7%20SQLite-tested-3DD6A0" alt="PostgreSQL, MySQL and SQLite">
