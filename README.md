@@ -11,9 +11,11 @@
   <img src="https://img.shields.io/badge/PostgreSQL%20%C2%B7%20MySQL%20%C2%B7%20SQLite-tested-3DD6A0" alt="PostgreSQL, MySQL and SQLite">
   <img src="https://img.shields.io/badge/no%20Redis-no%20extra%20servers-7EA6FF" alt="No Redis, no extra servers">
   <a href="LICENSE.txt"><img src="https://img.shields.io/badge/license-MIT-B08CFF" alt="MIT license"></a>
+  <a href="https://webresstudio.github.io/active_durable/"><img src="https://img.shields.io/badge/website-try%20the%20simulator-F2B641" alt="Website: try the interactive simulator"></a>
 </p>
 
 <p align="center">
+  <a href="https://webresstudio.github.io/active_durable/"><b>Website</b></a> ·
   <a href="#quick-start">Quick start</a> ·
   <a href="#in-a-rails-app">In a Rails app</a> ·
   <a href="#how-it-works">How it works</a> ·
