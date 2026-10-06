@@ -16,6 +16,8 @@ regenerate the migration when upgrading.
   before going to production. The settings moved there from "Observability".
 - Specs cover undos without arguments (`-> { ... }`), a `Method` as an undo, and `flow.abort!` inside a step, which
   skips the step's remaining retries.
+- gemspec: Active Job, Active Record and Active Support are required `>= 6.1, < 9`, the versions CI tests, instead
+  of any version from 6.1 on. The duplicate homepage link is gone, so `gem build` no longer warns.
 
 ## [0.5.0] - 2026-10-06
 

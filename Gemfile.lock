@@ -2,9 +2,9 @@ PATH
   remote: .
   specs:
     active_durable (0.5.0)
-      activejob (>= 6.1)
-      activerecord (>= 6.1)
-      activesupport (>= 6.1)
+      activejob (>= 6.1, < 9)
+      activerecord (>= 6.1, < 9)
+      activesupport (>= 6.1, < 9)
 
 GEM
   remote: https://rubygems.org/
