@@ -40,3 +40,8 @@ Metrics/BlockLength:
   Exclude:
     - "spec/**/*"
     - "*.gemspec"
+
+# gemfiles/rails-X.Y.gemfile keep the Rails version in the name, as the CI matrix uses it.
+Naming/FileName:
+  Exclude:
+    - "gemfiles/*.gemfile"
