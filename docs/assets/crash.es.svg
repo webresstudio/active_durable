@@ -1,0 +1,241 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" role="img" aria-label="Un apagón a mitad de camino: un trabajador nuevo lee el cuaderno, salta lo hecho y cobra una vez">
+  <title>Un apagón a mitad de camino: un trabajador nuevo lee el cuaderno, salta lo hecho y cobra una vez</title>
+  <defs>
+    <linearGradient id="glow" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#18234A"/><stop offset="1" stop-color="#0E1424"/>
+    </linearGradient>
+    <pattern id="stripes" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="14" height="14" fill="#281F48"/><rect width="6" height="14" fill="#3A2C66"/>
+    </pattern>
+  </defs>
+  <style>
+    text { font-family: ui-rounded, "SF Pro Rounded", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+    .shake { transform-box: fill-box; transform-origin: center; }
+    .flow { stroke-dasharray: 9 7; animation: flow 0.9s linear infinite; }
+    @keyframes flow { to { stroke-dashoffset: -32; } }
+    @keyframes k1 { 0.00% { fill: #141B2E; stroke: #56607E } 4.00% { fill: #141B2E; stroke: #56607E } 5.20% { fill: #182649; stroke: #7EA6FF } 10.00% { fill: #182649; stroke: #7EA6FF } 11.20% { fill: #0F3329; stroke: #3DD6A0 } 33.00% { fill: #0F3329; stroke: #3DD6A0 } 34.20% { fill: #182649; stroke: #7EA6FF } 37.00% { fill: #182649; stroke: #7EA6FF } 38.20% { fill: #0F3329; stroke: #3DD6A0 } 93.00% { fill: #0F3329; stroke: #3DD6A0 } 97.00% { fill: #141B2E; stroke: #56607E } 100.00% { fill: #141B2E; stroke: #56607E } }
+.k1 { animation: k1 15s linear infinite; }
+@keyframes k2 { 0.00% { opacity: 0 } 4.00% { opacity: 0 } 5.20% { opacity: 1 } 10.00% { opacity: 1 } 11.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k2 { animation: k2 15s linear infinite; }
+@keyframes k3 { 0.00% { opacity: 0 } 10.00% { opacity: 0 } 11.20% { opacity: 1 } 33.00% { opacity: 1 } 34.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k3 { animation: k3 15s linear infinite; }
+@keyframes k4 { 0.00% { opacity: 0 } 33.00% { opacity: 0 } 34.20% { opacity: 1 } 43.00% { opacity: 1 } 44.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k4 { animation: k4 15s linear infinite; }
+@keyframes k5 { 0.00% { opacity: 0 } 43.00% { opacity: 0 } 44.20% { opacity: 1 } 93.00% { opacity: 1 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k5 { animation: k5 15s linear infinite; }
+@keyframes k6 { 0.00% { fill: #141B2E; stroke: #56607E } 12.00% { fill: #141B2E; stroke: #56607E } 13.20% { fill: #182649; stroke: #7EA6FF } 18.00% { fill: #182649; stroke: #7EA6FF } 19.20% { fill: #0F3329; stroke: #3DD6A0 } 38.00% { fill: #0F3329; stroke: #3DD6A0 } 39.20% { fill: #182649; stroke: #7EA6FF } 42.00% { fill: #182649; stroke: #7EA6FF } 43.20% { fill: #0F3329; stroke: #3DD6A0 } 93.00% { fill: #0F3329; stroke: #3DD6A0 } 97.00% { fill: #141B2E; stroke: #56607E } 100.00% { fill: #141B2E; stroke: #56607E } }
+.k6 { animation: k6 15s linear infinite; }
+@keyframes k7 { 0.00% { opacity: 0 } 12.00% { opacity: 0 } 13.20% { opacity: 1 } 18.00% { opacity: 1 } 19.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k7 { animation: k7 15s linear infinite; }
+@keyframes k8 { 0.00% { opacity: 0 } 18.00% { opacity: 0 } 19.20% { opacity: 1 } 38.00% { opacity: 1 } 39.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k8 { animation: k8 15s linear infinite; }
+@keyframes k9 { 0.00% { opacity: 0 } 38.00% { opacity: 0 } 39.20% { opacity: 1 } 48.00% { opacity: 1 } 49.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k9 { animation: k9 15s linear infinite; }
+@keyframes k10 { 0.00% { opacity: 0 } 48.00% { opacity: 0 } 49.20% { opacity: 1 } 93.00% { opacity: 1 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k10 { animation: k10 15s linear infinite; }
+@keyframes k11 { 0.00% { stroke: #26304D } 12.00% { stroke: #26304D } 13.20% { stroke: #3DD6A0 } 93.00% { stroke: #3DD6A0 } 97.00% { stroke: #26304D } 100.00% { stroke: #26304D } }
+.k11 { animation: k11 15s linear infinite; }
+@keyframes k12 { 0.00% { fill: #141B2E; stroke: #56607E } 46.00% { fill: #141B2E; stroke: #56607E } 47.20% { fill: #182649; stroke: #7EA6FF } 53.00% { fill: #182649; stroke: #7EA6FF } 54.20% { fill: #0F3329; stroke: #3DD6A0 } 93.00% { fill: #0F3329; stroke: #3DD6A0 } 97.00% { fill: #141B2E; stroke: #56607E } 100.00% { fill: #141B2E; stroke: #56607E } }
+.k12 { animation: k12 15s linear infinite; }
+@keyframes k13 { 0.00% { opacity: 0 } 46.00% { opacity: 0 } 47.20% { opacity: 1 } 53.00% { opacity: 1 } 54.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k13 { animation: k13 15s linear infinite; }
+@keyframes k14 { 0.00% { opacity: 0 } 53.00% { opacity: 0 } 54.20% { opacity: 1 } 93.00% { opacity: 1 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k14 { animation: k14 15s linear infinite; }
+@keyframes k15 { 0.00% { stroke: #26304D } 46.00% { stroke: #26304D } 47.20% { stroke: #3DD6A0 } 93.00% { stroke: #3DD6A0 } 97.00% { stroke: #26304D } 100.00% { stroke: #26304D } }
+.k15 { animation: k15 15s linear infinite; }
+@keyframes k16 { 0.00% { fill: #141B2E; stroke: #56607E } 57.00% { fill: #141B2E; stroke: #56607E } 58.20% { fill: #182649; stroke: #7EA6FF } 63.00% { fill: #182649; stroke: #7EA6FF } 64.20% { fill: #0F3329; stroke: #3DD6A0 } 93.00% { fill: #0F3329; stroke: #3DD6A0 } 97.00% { fill: #141B2E; stroke: #56607E } 100.00% { fill: #141B2E; stroke: #56607E } }
+.k16 { animation: k16 15s linear infinite; }
+@keyframes k17 { 0.00% { opacity: 0 } 57.00% { opacity: 0 } 58.20% { opacity: 1 } 63.00% { opacity: 1 } 64.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k17 { animation: k17 15s linear infinite; }
+@keyframes k18 { 0.00% { opacity: 0 } 63.00% { opacity: 0 } 64.20% { opacity: 1 } 93.00% { opacity: 1 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k18 { animation: k18 15s linear infinite; }
+@keyframes k19 { 0.00% { stroke: #26304D } 57.00% { stroke: #26304D } 58.20% { stroke: #3DD6A0 } 93.00% { stroke: #3DD6A0 } 97.00% { stroke: #26304D } 100.00% { stroke: #26304D } }
+.k19 { animation: k19 15s linear infinite; }
+@keyframes k20 { 0.00% { opacity: 0 } 0.00% { opacity: 0 } 1.20% { opacity: 1 } 24.00% { opacity: 1 } 25.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k20 { animation: k20 15s linear infinite; }
+@keyframes k21 { 0.00% { opacity: 0 } 24.00% { opacity: 0 } 25.20% { opacity: 1 } 30.00% { opacity: 1 } 31.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k21 { animation: k21 15s linear infinite; }
+@keyframes k22 { 0.00% { opacity: 0 } 30.00% { opacity: 0 } 31.20% { opacity: 1 } 93.00% { opacity: 1 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k22 { animation: k22 15s linear infinite; }
+@keyframes k23 { 0.00% { opacity: 1 } 4.00% { opacity: 1 } 5.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 1 } 100.00% { opacity: 1 } }
+.k23 { animation: k23 15s linear infinite; }
+@keyframes k24 { 0.00% { opacity: 0 } 4.00% { opacity: 0 } 5.20% { opacity: 1 } 10.00% { opacity: 1 } 11.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k24 { animation: k24 15s linear infinite; }
+@keyframes k25 { 0.00% { opacity: 0 } 10.00% { opacity: 0 } 11.20% { opacity: 1 } 12.00% { opacity: 1 } 13.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k25 { animation: k25 15s linear infinite; }
+@keyframes k26 { 0.00% { opacity: 0 } 12.00% { opacity: 0 } 13.20% { opacity: 1 } 18.00% { opacity: 1 } 19.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k26 { animation: k26 15s linear infinite; }
+@keyframes k27 { 0.00% { opacity: 0 } 18.00% { opacity: 0 } 19.20% { opacity: 1 } 22.00% { opacity: 1 } 23.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k27 { animation: k27 15s linear infinite; }
+@keyframes k28 { 0.00% { opacity: 0 } 22.00% { opacity: 0 } 23.20% { opacity: 1 } 30.00% { opacity: 1 } 31.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k28 { animation: k28 15s linear infinite; }
+@keyframes k29 { 0.00% { opacity: 0 } 30.00% { opacity: 0 } 31.20% { opacity: 1 } 33.00% { opacity: 1 } 34.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k29 { animation: k29 15s linear infinite; }
+@keyframes k30 { 0.00% { opacity: 0 } 33.00% { opacity: 0 } 34.20% { opacity: 1 } 46.00% { opacity: 1 } 47.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k30 { animation: k30 15s linear infinite; }
+@keyframes k31 { 0.00% { opacity: 0 } 46.00% { opacity: 0 } 47.20% { opacity: 1 } 53.00% { opacity: 1 } 54.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k31 { animation: k31 15s linear infinite; }
+@keyframes k32 { 0.00% { opacity: 0 } 53.00% { opacity: 0 } 54.20% { opacity: 1 } 57.00% { opacity: 1 } 58.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k32 { animation: k32 15s linear infinite; }
+@keyframes k33 { 0.00% { opacity: 0 } 57.00% { opacity: 0 } 58.20% { opacity: 1 } 63.00% { opacity: 1 } 64.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k33 { animation: k33 15s linear infinite; }
+@keyframes k34 { 0.00% { opacity: 0 } 63.00% { opacity: 0 } 64.20% { opacity: 1 } 93.00% { opacity: 1 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k34 { animation: k34 15s linear infinite; }
+@keyframes k35 { 0.00% { opacity: 1 } 10.00% { opacity: 1 } 11.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 1 } 100.00% { opacity: 1 } }
+.k35 { animation: k35 15s linear infinite; }
+@keyframes k36 { 0.00% { opacity: 0 } 10.00% { opacity: 0 } 11.20% { opacity: 1 } 93.00% { opacity: 1 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k36 { animation: k36 15s linear infinite; }
+@keyframes k37 { 0.00% { opacity: 0 } 10.00% { opacity: 0 } 11.20% { opacity: 1 } 93.00% { opacity: 1 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k37 { animation: k37 15s linear infinite; }
+@keyframes k38 { 0.00% { opacity: 1 } 18.00% { opacity: 1 } 19.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 1 } 100.00% { opacity: 1 } }
+.k38 { animation: k38 15s linear infinite; }
+@keyframes k39 { 0.00% { opacity: 0 } 18.00% { opacity: 0 } 19.20% { opacity: 1 } 93.00% { opacity: 1 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k39 { animation: k39 15s linear infinite; }
+@keyframes k40 { 0.00% { opacity: 0 } 18.00% { opacity: 0 } 19.20% { opacity: 1 } 93.00% { opacity: 1 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k40 { animation: k40 15s linear infinite; }
+@keyframes k41 { 0.00% { opacity: 1 } 53.00% { opacity: 1 } 54.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 1 } 100.00% { opacity: 1 } }
+.k41 { animation: k41 15s linear infinite; }
+@keyframes k42 { 0.00% { opacity: 0 } 53.00% { opacity: 0 } 54.20% { opacity: 1 } 93.00% { opacity: 1 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k42 { animation: k42 15s linear infinite; }
+@keyframes k43 { 0.00% { opacity: 0 } 53.00% { opacity: 0 } 54.20% { opacity: 1 } 93.00% { opacity: 1 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k43 { animation: k43 15s linear infinite; }
+@keyframes k44 { 0.00% { opacity: 1 } 63.00% { opacity: 1 } 64.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 1 } 100.00% { opacity: 1 } }
+.k44 { animation: k44 15s linear infinite; }
+@keyframes k45 { 0.00% { opacity: 0 } 63.00% { opacity: 0 } 64.20% { opacity: 1 } 93.00% { opacity: 1 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k45 { animation: k45 15s linear infinite; }
+@keyframes k46 { 0.00% { opacity: 0 } 63.00% { opacity: 0 } 64.20% { opacity: 1 } 93.00% { opacity: 1 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k46 { animation: k46 15s linear infinite; }
+@keyframes k47 { 0.00% { opacity: 1 } 16.00% { opacity: 1 } 17.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 1 } 100.00% { opacity: 1 } }
+.k47 { animation: k47 15s linear infinite; }
+@keyframes k48 { 0.00% { opacity: 0 } 16.00% { opacity: 0 } 17.20% { opacity: 1 } 93.00% { opacity: 1 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k48 { animation: k48 15s linear infinite; }
+@keyframes k49 { 0.00% { opacity: 1 } 51.00% { opacity: 1 } 52.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 1 } 100.00% { opacity: 1 } }
+.k49 { animation: k49 15s linear infinite; }
+@keyframes k50 { 0.00% { opacity: 0 } 51.00% { opacity: 0 } 52.20% { opacity: 1 } 93.00% { opacity: 1 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k50 { animation: k50 15s linear infinite; }
+@keyframes k51 { 0.00% { opacity: 1 } 61.00% { opacity: 1 } 62.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 1 } 100.00% { opacity: 1 } }
+.k51 { animation: k51 15s linear infinite; }
+@keyframes k52 { 0.00% { opacity: 0 } 61.00% { opacity: 0 } 62.20% { opacity: 1 } 93.00% { opacity: 1 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k52 { animation: k52 15s linear infinite; }
+@keyframes k53 { 0.00% { opacity: 0 } 21.90% { opacity: 0 } 22.00% { opacity: 0.32 } 26.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k53 { animation: k53 15s linear infinite; }
+@keyframes k54 { 0.00% { opacity: 0 } 22.00% { opacity: 0 } 23.20% { opacity: 1 } 30.00% { opacity: 1 } 31.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k54 { animation: k54 15s linear infinite; }
+@keyframes k55 { 0.00% { opacity: 0 } 66.00% { opacity: 0 } 67.20% { opacity: 1 } 93.00% { opacity: 1 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k55 { animation: k55 15s linear infinite; }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+  </style>
+  <rect width="1200" height="560" rx="24" fill="url(#glow)"/>
+  <rect x="0.5" y="0.5" width="1199" height="559" rx="24" fill="none" stroke="#26304D"/>
+<text x="58" y="58" font-size="28" font-weight="800" fill="#E8ECF8" text-anchor="start">Un apagón a mitad de una compra</text>
+<text x="58" y="88" font-size="17" font-weight="400" fill="#9AA5C4" text-anchor="start">Cada paso terminado queda anotado en el cuaderno. Un trabajador nuevo lo lee y se los salta.</text>
+<g>
+  <rect x="58" y="120" width="232" height="100" rx="16" stroke-width="2.5" class="k1" fill="#141B2E" stroke="#56607E"/>
+  <text x="76" y="148" font-size="13" font-weight="700" fill="#9AA5C4" text-anchor="start">transacción</text>
+  <text x="272" y="148" font-size="15" font-weight="800" fill="#9AA5C4" text-anchor="end">1</text>
+  <text x="76" y="176" font-size="21" font-weight="800" fill="#E8ECF8" text-anchor="start">apartar stock</text>
+  <text x="76" y="204" font-size="16" font-weight="700" fill="#7EA6FF" text-anchor="start" class="k2">en curso</text>
+    <text x="76" y="204" font-size="16" font-weight="700" fill="#3DD6A0" text-anchor="start" class="k3">hecho ✔</text>
+    <text x="76" y="204" font-size="16" font-weight="700" fill="#7EA6FF" text-anchor="start" class="k4">ya hecho: saltado</text>
+    <text x="76" y="204" font-size="16" font-weight="700" fill="#3DD6A0" text-anchor="start" class="k5">hecho ✔</text>
+</g>
+
+<g>
+  <rect x="342" y="120" width="232" height="100" rx="16" stroke-width="2.5" class="k6" fill="#141B2E" stroke="#56607E"/>
+  <text x="360" y="148" font-size="13" font-weight="700" fill="#9AA5C4" text-anchor="start">paso</text>
+  <text x="556" y="148" font-size="15" font-weight="800" fill="#9AA5C4" text-anchor="end">2</text>
+  <text x="360" y="176" font-size="21" font-weight="800" fill="#E8ECF8" text-anchor="start">cobrar tarjeta</text>
+  <text x="360" y="204" font-size="16" font-weight="700" fill="#7EA6FF" text-anchor="start" class="k7">en curso</text>
+    <text x="360" y="204" font-size="16" font-weight="700" fill="#3DD6A0" text-anchor="start" class="k8">hecho ✔</text>
+    <text x="360" y="204" font-size="16" font-weight="700" fill="#7EA6FF" text-anchor="start" class="k9">ya hecho: saltado</text>
+    <text x="360" y="204" font-size="16" font-weight="700" fill="#3DD6A0" text-anchor="start" class="k10">hecho ✔</text>
+</g>
+
+<g class="k11" stroke="#26304D"><line x1="296" y1="170" x2="336" y2="170" stroke-width="5" stroke-linecap="round" class="flow"/></g>
+<g>
+  <rect x="626" y="120" width="232" height="100" rx="16" stroke-width="2.5" class="k12" fill="#141B2E" stroke="#56607E"/>
+  <text x="644" y="148" font-size="13" font-weight="700" fill="#F2B641" text-anchor="start">pivote</text>
+  <text x="840" y="148" font-size="15" font-weight="800" fill="#9AA5C4" text-anchor="end">3</text>
+  <text x="644" y="176" font-size="21" font-weight="800" fill="#E8ECF8" text-anchor="start">despachar</text>
+  <text x="644" y="204" font-size="16" font-weight="700" fill="#7EA6FF" text-anchor="start" class="k13">en curso</text>
+    <text x="644" y="204" font-size="16" font-weight="700" fill="#3DD6A0" text-anchor="start" class="k14">hecho ✔</text>
+</g>
+
+<g class="k15" stroke="#26304D"><line x1="580" y1="170" x2="620" y2="170" stroke-width="5" stroke-linecap="round" class="flow"/></g>
+<g>
+  <rect x="910" y="120" width="232" height="100" rx="16" stroke-width="2.5" class="k16" fill="#141B2E" stroke="#56607E"/>
+  <text x="928" y="148" font-size="13" font-weight="700" fill="#9AA5C4" text-anchor="start">paso</text>
+  <text x="1124" y="148" font-size="15" font-weight="800" fill="#9AA5C4" text-anchor="end">4</text>
+  <text x="928" y="176" font-size="21" font-weight="800" fill="#E8ECF8" text-anchor="start">enviar email</text>
+  <text x="928" y="204" font-size="16" font-weight="700" fill="#7EA6FF" text-anchor="start" class="k17">en curso</text>
+    <text x="928" y="204" font-size="16" font-weight="700" fill="#3DD6A0" text-anchor="start" class="k18">hecho ✔</text>
+</g>
+
+<g class="k19" stroke="#26304D"><line x1="864" y1="170" x2="904" y2="170" stroke-width="5" stroke-linecap="round" class="flow"/></g>
+<line x1="884" y1="112" x2="884" y2="228" stroke="#F2B641" stroke-width="3" stroke-dasharray="7 6"/>
+<text x="884" y="250" font-size="13" font-weight="700" fill="#F2B641" text-anchor="middle">punto de no retorno</text>
+
+<rect x="58" y="268" width="330" height="210" rx="16" fill="#10172A" stroke="#26304D"/>
+<text x="78" y="300" font-size="15" font-weight="700" fill="#9AA5C4" text-anchor="start">Trabajador</text>
+
+<text x="78" y="330" font-size="30" font-weight="800" fill="#E8ECF8" text-anchor="start" class="k20">Trabajador #1</text>
+<text x="78" y="330" font-size="30" font-weight="800" fill="#FF5C74" text-anchor="start" class="k21">Trabajador #1</text>
+<text x="78" y="330" font-size="30" font-weight="800" fill="#7EA6FF" text-anchor="start" class="k22">Trabajador #2</text>
+<text x="78" y="372" font-size="18" font-weight="700" fill="#9AA5C4" text-anchor="start" class="k23">esperando trabajo</text>
+<text x="78" y="372" font-size="18" font-weight="700" fill="#7EA6FF" text-anchor="start" class="k24">ejecuta el paso 1</text>
+<text x="78" y="372" font-size="18" font-weight="700" fill="#3DD6A0" text-anchor="start" class="k25">anotó el paso 1 en el cuaderno</text>
+<text x="78" y="372" font-size="18" font-weight="700" fill="#7EA6FF" text-anchor="start" class="k26">ejecuta el paso 2</text>
+<text x="78" y="372" font-size="18" font-weight="700" fill="#3DD6A0" text-anchor="start" class="k27">anotó el paso 2 en el cuaderno</text>
+<text x="78" y="372" font-size="18" font-weight="700" fill="#FF5C74" text-anchor="start" class="k28">murió, y su memoria con él</text>
+<text x="78" y="372" font-size="18" font-weight="700" fill="#7EA6FF" text-anchor="start" class="k29">abre el cuaderno</text>
+<text x="78" y="372" font-size="18" font-weight="700" fill="#7EA6FF" text-anchor="start" class="k30">salta lo que ya está hecho</text>
+<text x="78" y="372" font-size="18" font-weight="700" fill="#7EA6FF" text-anchor="start" class="k31">ejecuta el paso 3</text>
+<text x="78" y="372" font-size="18" font-weight="700" fill="#F2B641" text-anchor="start" class="k32">pasó el punto de no retorno</text>
+<text x="78" y="372" font-size="18" font-weight="700" fill="#7EA6FF" text-anchor="start" class="k33">ejecuta el paso 4</text>
+<text x="78" y="372" font-size="18" font-weight="700" fill="#3DD6A0" text-anchor="start" class="k34">terminó la saga</text>
+<text x="78" y="450" font-size="15" font-weight="400" fill="#9AA5C4" text-anchor="start">Un apagón borra la memoria.</text>
+<rect x="412" y="268" width="450" height="210" rx="16" fill="#10172A" stroke="#26304D"/>
+<text x="432" y="300" font-size="15" font-weight="700" fill="#9AA5C4" text-anchor="start">Cuaderno: una tabla en tu base de datos</text>
+
+<text x="434" y="320" font-size="18" font-weight="400" fill="#56607E" text-anchor="start" class="k35">—</text>
+<text x="434" y="320" font-size="18" font-weight="800" fill="#3DD6A0" text-anchor="start" class="k36">✔</text>
+<text x="462" y="320" font-size="16" font-weight="700" fill="#E8ECF8" text-anchor="start" class="mono">reserve_stock</text>
+<text x="842" y="320" font-size="15" font-weight="400" fill="#7EA6FF" text-anchor="end" class="k37 mono">{&quot;reserved&quot;: 1}</text>
+<text x="434" y="358" font-size="18" font-weight="400" fill="#56607E" text-anchor="start" class="k38">—</text>
+<text x="434" y="358" font-size="18" font-weight="800" fill="#3DD6A0" text-anchor="start" class="k39">✔</text>
+<text x="462" y="358" font-size="16" font-weight="700" fill="#E8ECF8" text-anchor="start" class="mono">charge</text>
+<text x="842" y="358" font-size="15" font-weight="400" fill="#7EA6FF" text-anchor="end" class="k40 mono">{&quot;id&quot;: &quot;pi_381&quot;}</text>
+<text x="434" y="396" font-size="18" font-weight="400" fill="#56607E" text-anchor="start" class="k41">—</text>
+<text x="434" y="396" font-size="18" font-weight="800" fill="#3DD6A0" text-anchor="start" class="k42">✔</text>
+<text x="462" y="396" font-size="16" font-weight="700" fill="#E8ECF8" text-anchor="start" class="mono">dispatch</text>
+<text x="842" y="396" font-size="15" font-weight="400" fill="#7EA6FF" text-anchor="end" class="k43 mono">{&quot;tracking&quot;: &quot;MX-55&quot;}</text>
+<text x="434" y="434" font-size="18" font-weight="400" fill="#56607E" text-anchor="start" class="k44">—</text>
+<text x="434" y="434" font-size="18" font-weight="800" fill="#3DD6A0" text-anchor="start" class="k45">✔</text>
+<text x="462" y="434" font-size="16" font-weight="700" fill="#E8ECF8" text-anchor="start" class="mono">email</text>
+<text x="842" y="434" font-size="15" font-weight="400" fill="#7EA6FF" text-anchor="end" class="k46 mono">true</text>
+<rect x="886" y="268" width="256" height="210" rx="16" fill="#10172A" stroke="#26304D"/>
+<text x="906" y="300" font-size="15" font-weight="700" fill="#9AA5C4" text-anchor="start">Mundo de fuera</text>
+
+<text x="906" y="330" font-size="16" font-weight="400" fill="#9AA5C4" text-anchor="start">Cobros en Stripe</text>
+<text x="1136" y="330" font-size="20" font-weight="800" fill="#E8ECF8" text-anchor="end" class="k47">0</text>
+<text x="1136" y="330" font-size="20" font-weight="800" fill="#3DD6A0" text-anchor="end" class="k48">1</text>
+<text x="906" y="380" font-size="16" font-weight="400" fill="#9AA5C4" text-anchor="start">Paquetes enviados</text>
+<text x="1136" y="380" font-size="20" font-weight="800" fill="#E8ECF8" text-anchor="end" class="k49">0</text>
+<text x="1136" y="380" font-size="20" font-weight="800" fill="#3DD6A0" text-anchor="end" class="k50">1</text>
+<text x="906" y="430" font-size="16" font-weight="400" fill="#9AA5C4" text-anchor="start">Emails enviados</text>
+<text x="1136" y="430" font-size="20" font-weight="800" fill="#E8ECF8" text-anchor="end" class="k51">0</text>
+<text x="1136" y="430" font-size="20" font-weight="800" fill="#3DD6A0" text-anchor="end" class="k52">1</text>
+<rect width="1200" height="560" rx="24" fill="#FF5C74" opacity="0" class="k53"/>
+<g class="k54">
+  <rect x="320" y="496" width="560" height="40" rx="20" fill="#3B1522" stroke="#FF5C74" stroke-width="2"/>
+  <text x="600" y="522" font-size="18" font-weight="800" fill="#FF5C74" text-anchor="middle">El servidor murió. El cuaderno no.</text>
+</g>
+
+<g class="k55">
+  <rect x="320" y="496" width="560" height="40" rx="20" fill="#0F3329" stroke="#3DD6A0" stroke-width="2"/>
+  <text x="600" y="522" font-size="18" font-weight="800" fill="#3DD6A0" text-anchor="middle">Completada. Stripe cobró una sola vez.</text>
+</g>
+
+
+</svg>

@@ -1,3 +1,5 @@
+<p align="center"><b>English</b> · <a href="README.es.md">Español</a></p>
+
 <p align="center">
   <img src="docs/assets/hero.svg" alt="ActiveDurable: durable sagas for Rails. Finish the work or undo it in order, even if the server dies halfway." width="100%">
 </p>
@@ -435,6 +437,7 @@ bin/demo                                                      # the dashboard wi
 ruby docs/assets/generate.rb                                  # rebuild the animated SVGs of this README
 ```
 
+This README exists in two languages: every change goes to `README.md` and `README.es.md` (see `CONTRIBUTING.md`).
 The design notes, in Spanish, are in `docs/`.
 
 ## License

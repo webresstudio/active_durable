@@ -18,6 +18,8 @@ regenerate the migration when upgrading.
 
 - The README is rewritten, with animated explanations (`docs/assets/*.svg`, built by `docs/assets/generate.rb`),
   dashboard screenshots, a state diagram and a compatibility table.
+- The README also exists in Spanish (`README.es.md`, with its own animations). `CONTRIBUTING.md` and `CLAUDE.md`
+  ask to update both, and `spec/readme_spec.rb` fails when they drift apart.
 - Dashboard: long step names wrap at underscores, and notebook results get room to breathe.
 
 ### Fixed

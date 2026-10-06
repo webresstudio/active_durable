@@ -1,0 +1,145 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="540" viewBox="0 0 1200 540" role="img" aria-label="Un fallo antes del punto de no retorno: lo que terminó se deshace en reversa">
+  <title>Un fallo antes del punto de no retorno: lo que terminó se deshace en reversa</title>
+  <defs>
+    <linearGradient id="glow" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#18234A"/><stop offset="1" stop-color="#0E1424"/>
+    </linearGradient>
+    <pattern id="stripes" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="14" height="14" fill="#281F48"/><rect width="6" height="14" fill="#3A2C66"/>
+    </pattern>
+  </defs>
+  <style>
+    text { font-family: ui-rounded, "SF Pro Rounded", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+    .shake { transform-box: fill-box; transform-origin: center; }
+    .flow { stroke-dasharray: 9 7; animation: flow 0.9s linear infinite; }
+    @keyframes flow { to { stroke-dashoffset: -32; } }
+    @keyframes k1 { 0.00% { fill: #141B2E; stroke: #56607E } 4.00% { fill: #141B2E; stroke: #56607E } 5.20% { fill: #182649; stroke: #7EA6FF } 9.00% { fill: #182649; stroke: #7EA6FF } 10.20% { fill: #0F3329; stroke: #3DD6A0 } 42.00% { fill: #0F3329; stroke: #3DD6A0 } 43.20% { fill: #281F48; stroke: #B08CFF } 93.00% { fill: #281F48; stroke: #B08CFF } 97.00% { fill: #141B2E; stroke: #56607E } 100.00% { fill: #141B2E; stroke: #56607E } }
+.k1 { animation: k1 13s linear infinite; }
+@keyframes k2 { 0.00% { opacity: 0 } 4.00% { opacity: 0 } 5.20% { opacity: 1 } 9.00% { opacity: 1 } 10.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k2 { animation: k2 13s linear infinite; }
+@keyframes k3 { 0.00% { opacity: 0 } 9.00% { opacity: 0 } 10.20% { opacity: 1 } 42.00% { opacity: 1 } 43.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k3 { animation: k3 13s linear infinite; }
+@keyframes k4 { 0.00% { opacity: 0 } 42.00% { opacity: 0 } 43.20% { opacity: 1 } 93.00% { opacity: 1 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k4 { animation: k4 13s linear infinite; }
+@keyframes k5 { 0.00% { fill: #141B2E; stroke: #56607E } 11.00% { fill: #141B2E; stroke: #56607E } 12.20% { fill: #182649; stroke: #7EA6FF } 16.00% { fill: #182649; stroke: #7EA6FF } 17.20% { fill: #0F3329; stroke: #3DD6A0 } 32.00% { fill: #0F3329; stroke: #3DD6A0 } 33.20% { fill: #281F48; stroke: #B08CFF } 93.00% { fill: #281F48; stroke: #B08CFF } 97.00% { fill: #141B2E; stroke: #56607E } 100.00% { fill: #141B2E; stroke: #56607E } }
+.k5 { animation: k5 13s linear infinite; }
+@keyframes k6 { 0.00% { opacity: 0 } 11.00% { opacity: 0 } 12.20% { opacity: 1 } 16.00% { opacity: 1 } 17.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k6 { animation: k6 13s linear infinite; }
+@keyframes k7 { 0.00% { opacity: 0 } 16.00% { opacity: 0 } 17.20% { opacity: 1 } 32.00% { opacity: 1 } 33.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k7 { animation: k7 13s linear infinite; }
+@keyframes k8 { 0.00% { opacity: 0 } 32.00% { opacity: 0 } 33.20% { opacity: 1 } 93.00% { opacity: 1 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k8 { animation: k8 13s linear infinite; }
+@keyframes k9 { 0.00% { stroke: #26304D } 11.00% { stroke: #26304D } 12.20% { stroke: #3DD6A0 } 42.00% { stroke: #3DD6A0 } 43.20% { stroke: #B08CFF } 93.00% { stroke: #B08CFF } 97.00% { stroke: #26304D } 100.00% { stroke: #26304D } }
+.k9 { animation: k9 13s linear infinite; }
+@keyframes k10 { 0.00% { fill: #141B2E; stroke: #56607E } 19.00% { fill: #141B2E; stroke: #56607E } 20.20% { fill: #182649; stroke: #7EA6FF } 25.00% { fill: #182649; stroke: #7EA6FF } 26.20% { fill: #3B1522; stroke: #FF5C74 } 93.00% { fill: #3B1522; stroke: #FF5C74 } 97.00% { fill: #141B2E; stroke: #56607E } 100.00% { fill: #141B2E; stroke: #56607E } }
+.k10 { animation: k10 13s linear infinite; }
+@keyframes k11 { 0.00% { opacity: 0 } 19.00% { opacity: 0 } 20.20% { opacity: 1 } 25.00% { opacity: 1 } 26.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k11 { animation: k11 13s linear infinite; }
+@keyframes k12 { 0.00% { opacity: 0 } 25.00% { opacity: 0 } 26.20% { opacity: 1 } 93.00% { opacity: 1 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k12 { animation: k12 13s linear infinite; }
+@keyframes k13 { 0.00% { transform: translateX(0) } 25.00% { transform: translateX(0) } 25.60% { transform: translateX(-7px) } 26.20% { transform: translateX(7px) } 26.80% { transform: translateX(-5px) } 27.40% { transform: translateX(0) } 100.00% { transform: translateX(0) } }
+.k13 { animation: k13 13s linear infinite; }
+@keyframes k14 { 0.00% { stroke: #26304D } 19.00% { stroke: #26304D } 20.20% { stroke: #3DD6A0 } 32.00% { stroke: #3DD6A0 } 33.20% { stroke: #B08CFF } 93.00% { stroke: #B08CFF } 97.00% { stroke: #26304D } 100.00% { stroke: #26304D } }
+.k14 { animation: k14 13s linear infinite; }
+@keyframes k15 { 0.00% { fill: #141B2E; stroke: #56607E } 93.00% { fill: #141B2E; stroke: #56607E } 97.00% { fill: #141B2E; stroke: #56607E } 100.00% { fill: #141B2E; stroke: #56607E } }
+.k15 { animation: k15 13s linear infinite; }
+@keyframes k16 { 0.00% { opacity: 0 } 0.00% { opacity: 0 } 1.20% { opacity: 1 } 93.00% { opacity: 1 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k16 { animation: k16 13s linear infinite; }
+@keyframes k17 { 0.00% { opacity: 0 } 32.00% { opacity: 0 } 33.20% { opacity: 1 } 93.00% { opacity: 1 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k17 { animation: k17 13s linear infinite; }
+@keyframes k18 { 0.00% { opacity: 0 } 42.00% { opacity: 0 } 43.20% { opacity: 1 } 93.00% { opacity: 1 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k18 { animation: k18 13s linear infinite; }
+@keyframes k19 { 0.00% { opacity: 0 } 42.00% { opacity: 0 } 43.20% { opacity: 1 } 93.00% { opacity: 1 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k19 { animation: k19 13s linear infinite; }
+@keyframes k20 { 0.00% { opacity: 1 } 15.00% { opacity: 1 } 16.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 1 } 100.00% { opacity: 1 } }
+.k20 { animation: k20 13s linear infinite; }
+@keyframes k21 { 0.00% { opacity: 0 } 15.00% { opacity: 0 } 16.20% { opacity: 1 } 93.00% { opacity: 1 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k21 { animation: k21 13s linear infinite; }
+@keyframes k22 { 0.00% { opacity: 1 } 31.00% { opacity: 1 } 32.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 1 } 100.00% { opacity: 1 } }
+.k22 { animation: k22 13s linear infinite; }
+@keyframes k23 { 0.00% { opacity: 0 } 31.00% { opacity: 0 } 32.20% { opacity: 1 } 93.00% { opacity: 1 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k23 { animation: k23 13s linear infinite; }
+@keyframes k24 { 0.00% { opacity: 1 } 8.00% { opacity: 1 } 9.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 1 } 100.00% { opacity: 1 } }
+.k24 { animation: k24 13s linear infinite; }
+@keyframes k25 { 0.00% { opacity: 0 } 8.00% { opacity: 0 } 9.20% { opacity: 1 } 41.00% { opacity: 1 } 42.20% { opacity: 0 } 93.00% { opacity: 0 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k25 { animation: k25 13s linear infinite; }
+@keyframes k26 { 0.00% { opacity: 0 } 41.00% { opacity: 0 } 42.20% { opacity: 1 } 93.00% { opacity: 1 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k26 { animation: k26 13s linear infinite; }
+@keyframes k27 { 0.00% { opacity: 0 } 52.00% { opacity: 0 } 53.20% { opacity: 1 } 93.00% { opacity: 1 } 97.00% { opacity: 0 } 100.00% { opacity: 0 } }
+.k27 { animation: k27 13s linear infinite; }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+  </style>
+  <rect width="1200" height="540" rx="24" fill="url(#glow)"/>
+  <rect x="0.5" y="0.5" width="1199" height="539" rx="24" fill="none" stroke="#26304D"/>
+<text x="58" y="58" font-size="28" font-weight="800" fill="#E8ECF8" text-anchor="start">Deshacer en reversa</text>
+<text x="58" y="88" font-size="17" font-weight="400" fill="#9AA5C4" text-anchor="start">Antes del punto de no retorno, un fallo deshace lo que ya terminó, empezando por el último paso.</text>
+<g>
+  <rect x="58" y="120" width="232" height="100" rx="16" stroke-width="2.5" class="k1" fill="#141B2E" stroke="#56607E"/>
+  <text x="76" y="148" font-size="13" font-weight="700" fill="#9AA5C4" text-anchor="start">transacción</text>
+  <text x="272" y="148" font-size="15" font-weight="800" fill="#9AA5C4" text-anchor="end">1</text>
+  <text x="76" y="176" font-size="21" font-weight="800" fill="#E8ECF8" text-anchor="start">apartar stock</text>
+  <text x="76" y="204" font-size="16" font-weight="700" fill="#7EA6FF" text-anchor="start" class="k2">en curso</text>
+    <text x="76" y="204" font-size="16" font-weight="700" fill="#3DD6A0" text-anchor="start" class="k3">hecho ✔</text>
+    <text x="76" y="204" font-size="16" font-weight="700" fill="#B08CFF" text-anchor="start" class="k4">deshecho: liberado</text>
+</g>
+
+<g>
+  <rect x="342" y="120" width="232" height="100" rx="16" stroke-width="2.5" class="k5" fill="#141B2E" stroke="#56607E"/>
+  <text x="360" y="148" font-size="13" font-weight="700" fill="#9AA5C4" text-anchor="start">paso</text>
+  <text x="556" y="148" font-size="15" font-weight="800" fill="#9AA5C4" text-anchor="end">2</text>
+  <text x="360" y="176" font-size="21" font-weight="800" fill="#E8ECF8" text-anchor="start">cobrar tarjeta</text>
+  <text x="360" y="204" font-size="16" font-weight="700" fill="#7EA6FF" text-anchor="start" class="k6">en curso</text>
+    <text x="360" y="204" font-size="16" font-weight="700" fill="#3DD6A0" text-anchor="start" class="k7">hecho ✔</text>
+    <text x="360" y="204" font-size="16" font-weight="700" fill="#B08CFF" text-anchor="start" class="k8">deshecho: reembolsado</text>
+</g>
+
+<g class="k9" stroke="#26304D"><line x1="296" y1="170" x2="336" y2="170" stroke-width="5" stroke-linecap="round" class="flow"/></g>
+<g class="shake k13">
+  <rect x="626" y="120" width="232" height="100" rx="16" stroke-width="2.5" class="k10" fill="#141B2E" stroke="#56607E"/>
+  <text x="644" y="148" font-size="13" font-weight="700" fill="#F2B641" text-anchor="start">pivote</text>
+  <text x="840" y="148" font-size="15" font-weight="800" fill="#9AA5C4" text-anchor="end">3</text>
+  <text x="644" y="176" font-size="21" font-weight="800" fill="#E8ECF8" text-anchor="start">despachar</text>
+  <text x="644" y="204" font-size="16" font-weight="700" fill="#7EA6FF" text-anchor="start" class="k11">en curso</text>
+    <text x="644" y="204" font-size="16" font-weight="700" fill="#FF5C74" text-anchor="start" class="k12">falló: dirección inválida</text>
+</g>
+
+<g class="k14" stroke="#26304D"><line x1="580" y1="170" x2="620" y2="170" stroke-width="5" stroke-linecap="round" class="flow"/></g>
+<g>
+  <rect x="910" y="120" width="232" height="100" rx="16" stroke-width="2.5" class="k15" fill="#141B2E" stroke="#56607E"/>
+  <text x="928" y="148" font-size="13" font-weight="700" fill="#9AA5C4" text-anchor="start">paso</text>
+  <text x="1124" y="148" font-size="15" font-weight="800" fill="#9AA5C4" text-anchor="end">4</text>
+  <text x="928" y="176" font-size="21" font-weight="800" fill="#E8ECF8" text-anchor="start">enviar email</text>
+  <text x="928" y="204" font-size="16" font-weight="700" fill="#56607E" text-anchor="start" class="k16">nunca se ejecuta</text>
+</g>
+
+<line x1="884" y1="112" x2="884" y2="228" stroke="#F2B641" stroke-width="3" stroke-dasharray="7 6"/>
+<text x="884" y="250" font-size="13" font-weight="700" fill="#F2B641" text-anchor="middle">punto de no retorno</text>
+
+<rect x="58" y="290" width="600" height="160" rx="16" fill="#10172A" stroke="#26304D"/>
+<text x="78" y="322" font-size="15" font-weight="700" fill="#9AA5C4" text-anchor="start">Deshacer: el último paso primero</text>
+
+<g class="k17"><rect x="80" y="345" width="250" height="46" rx="12" fill="url(#stripes)" stroke="#B08CFF" stroke-width="2"/><text x="205" y="375" font-size="18" font-weight="800" fill="#E8ECF8" text-anchor="middle">↩ reembolsar el cobro</text></g>
+<text x="345" y="376" font-size="26" font-weight="800" fill="#B08CFF" text-anchor="start" class="k18">→</text>
+<g class="k19"><rect x="380" y="345" width="250" height="46" rx="12" fill="url(#stripes)" stroke="#B08CFF" stroke-width="2"/><text x="505" y="375" font-size="18" font-weight="800" fill="#E8ECF8" text-anchor="middle">↩ liberar el stock</text></g>
+<text x="80" y="426" font-size="15" font-weight="400" fill="#9AA5C4" text-anchor="start">Cada deshacer tiene su propio ticket y su propia línea en el cuaderno.</text>
+<rect x="686" y="290" width="456" height="160" rx="16" fill="#10172A" stroke="#26304D"/>
+<text x="706" y="322" font-size="15" font-weight="700" fill="#9AA5C4" text-anchor="start">Mundo de fuera</text>
+
+<text x="706" y="350" font-size="16" font-weight="400" fill="#9AA5C4" text-anchor="start">Stripe: cobrado</text>
+<text x="936" y="350" font-size="20" font-weight="800" fill="#E8ECF8" text-anchor="end" class="k20">0</text>
+<text x="936" y="350" font-size="20" font-weight="800" fill="#E8ECF8" text-anchor="end" class="k21">1</text>
+<text x="706" y="390" font-size="16" font-weight="400" fill="#9AA5C4" text-anchor="start">Stripe: reembolsado</text>
+<text x="936" y="390" font-size="20" font-weight="800" fill="#E8ECF8" text-anchor="end" class="k22">0</text>
+<text x="936" y="390" font-size="20" font-weight="800" fill="#B08CFF" text-anchor="end" class="k23">1</text>
+<text x="706" y="430" font-size="16" font-weight="400" fill="#9AA5C4" text-anchor="start">Stock apartado</text>
+<text x="936" y="430" font-size="20" font-weight="800" fill="#E8ECF8" text-anchor="end" class="k24">0</text>
+<text x="936" y="430" font-size="20" font-weight="800" fill="#E8ECF8" text-anchor="end" class="k25">1</text>
+<text x="936" y="430" font-size="20" font-weight="800" fill="#B08CFF" text-anchor="end" class="k26">0</text>
+<g class="k27">
+  <rect x="300" y="474" width="600" height="40" rx="20" fill="#281F48" stroke="#B08CFF" stroke-width="2"/>
+  <text x="600" y="500" font-size="18" font-weight="800" fill="#B08CFF" text-anchor="middle">Compensada. Nada quedó a medias.</text>
+</g>
+
+
+</svg>
