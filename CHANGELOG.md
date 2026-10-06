@@ -7,6 +7,12 @@ regenerate the migration when upgrading.
 
 ## [Unreleased]
 
+### Fixed
+
+- CI: the Rails 7.2 and 8.0 lockfiles still recorded version 0.3.0, so frozen installs failed. A spec now checks
+  them, and `rake gemfiles:lock` relocks them after a version or gemspec change.
+- The packaged gem no longer includes `gemfiles/`.
+
 ## [0.4.0] - 2026-10-05
 
 The dashboard, redrawn.

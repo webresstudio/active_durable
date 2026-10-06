@@ -1,7 +1,7 @@
 PATH
   remote: ..
   specs:
-    active_durable (0.3.0)
+    active_durable (0.4.0)
       activejob (>= 7.2)
       activerecord (>= 7.2)
       activesupport (>= 7.2)
@@ -251,7 +251,7 @@ DEPENDENCIES
 CHECKSUMS
   actionpack (8.0.5.1) sha256=a5595c9d824d68884ddc4d3965ab78c897760d3752e190df7efe897371caa1eb
   actionview (8.0.5.1) sha256=472a108b9cc2295c4ac3ff09b028045e619875801f48c556f0085210b9cb1440
-  active_durable (0.3.0)
+  active_durable (0.4.0)
   activejob (8.0.5.1) sha256=142407a21b6c3cbc6ddd92ca111ac18ea5c40298eb94d81845cd897a072a6880
   activemodel (8.0.5.1) sha256=559be32aa9c40db7a3ee0aef926d4508a9ebd22f96f7276c11326d21a7dff4a4
   activerecord (8.0.5.1) sha256=9252968fce404d75eb17092498a440d472167f2f8deee32b4658d6552b1eeea7
