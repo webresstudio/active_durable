@@ -15,6 +15,7 @@
 
 <p align="center">
   <a href="#inicio-rápido">Inicio rápido</a> ·
+  <a href="#en-una-app-rails">En una app Rails</a> ·
   <a href="#cómo-funciona">Cómo funciona</a> ·
   <a href="#las-piezas">Las piezas</a> ·
   <a href="#dashboard">Dashboard</a> ·
@@ -62,31 +63,46 @@ CheckoutSaga = Durable.define(:checkout) do |flow, order_id:|
   order = Order.find(order_id)
 
   # Solo toca tu base de datos: se confirma junto con su anotación, así que ocurre exactamente una vez.
-  flow.transaction(:reserve_stock, undo: ->(_) { order.release_stock! }) do
+  flow.transaction :reserve_stock, undo: -> { order.release_stock! } do
     order.reserve_stock!
     { "reserved" => true }
   end
 
   # Habla con el mundo de fuera: el ticket es una llave de idempotencia que nunca cambia para este paso.
-  payment = flow.step(:charge,
-                      undo: lambda { |charge, ticket|
-                        Stripe::Refund.create({ payment_intent: charge["id"] }, { idempotency_key: ticket })
-                      }) do |ticket|
-    intent = Stripe::PaymentIntent.create(
-      { amount: order.total_cents, currency: "usd", customer: order.user.stripe_id, confirm: true },
-      { idempotency_key: ticket }
-    )
-    { "id" => intent.id }
+  payment = flow.step :charge, undo: ->(charge, ticket) { Payments.refund(charge, ticket) } do |ticket|
+    Payments.charge(order, ticket)
+  rescue Stripe::CardError => e
+    flow.abort!(e.message) # una tarjeta rechazada no se reintenta: el stock se libera en seguida
   end
 
   # El punto de no retorno: antes de él los fallos se deshacen, después los pasos se reintentan.
-  flow.pivot(:dispatch) do |ticket|
+  flow.pivot :dispatch do |ticket|
     { "tracking" => Carrier.ship(order.id, reference: ticket).tracking_number, "payment" => payment["id"] }
   end
 
   flow.step(:confirmation_email) { OrderMailer.shipped(order.id).deliver_now && true }
   flow.sleep(:wait_for_delivery, 3.days) # ningún trabajador queda ocupado mientras duerme
   flow.step(:ask_for_review) { ReviewMailer.ask(order.id).deliver_now && true }
+end
+```
+
+Las llamadas a Stripe viven en un módulo normal, con el hacer y el deshacer uno junto al otro. La receta les pasa el
+ticket:
+
+```ruby
+# app/services/payments.rb
+module Payments
+  def self.charge(order, ticket)
+    intent = Stripe::PaymentIntent.create(
+      { amount: order.total_cents, currency: "usd", customer: order.user.stripe_id, confirm: true },
+      { idempotency_key: ticket }
+    )
+    { "id" => intent.id } # se anota en el cuaderno, así que debe caber en JSON
+  end
+
+  def self.refund(charge, ticket)
+    Stripe::Refund.create({ payment_intent: charge["id"] }, { idempotency_key: ticket })
+  end
 end
 ```
 
@@ -111,6 +127,86 @@ production:
 ```
 
 > `Durable` es un alias corto de `ActiveDurable`. No se define si tu app ya tiene una constante `Durable`.
+
+## En una app Rails
+
+```text
+app/
+  sagas/checkout_saga.rb            la receta
+  services/payments.rb              cobrar y reembolsar, uno junto al otro
+  services/place_order.rb           crea el pedido y arranca la saga
+  controllers/orders_controller.rb  llama a PlaceOrder y responde en seguida
+```
+
+El controller nunca llama a Stripe. Arranca la saga y responde al instante; un job corre los pasos.
+
+```ruby
+# app/services/place_order.rb
+class PlaceOrder
+  def self.call(params)
+    Order.transaction do
+      order = Order.create!(params)
+      Durable.start(:checkout, id: "checkout-#{order.id}", order_id: order.id)
+      order
+    end
+  end
+end
+
+# app/controllers/orders_controller.rb
+class OrdersController < ApplicationController
+  def create
+    redirect_to PlaceOrder.call(order_params)
+  end
+
+  def show
+    @order = Order.find(params[:id])
+  end
+end
+
+# app/models/order.rb
+class Order < ApplicationRecord
+  def checkout
+    Durable.find("checkout-#{id}")
+  end
+end
+```
+
+El `id:` une la saga a su pedido, así que la página del pedido puede mostrar en qué va la saga:
+
+```erb
+<%# app/views/orders/show.html.erb %>
+<% case @order.checkout.status %>
+<% when "completed" %>   Tu pedido está confirmado.
+<% when "compensated" %> No pudimos completarlo y te devolvimos el dinero.
+<% when "blocked" %>     Lo estamos revisando.
+<% else %>               Procesando…
+<% end %>
+```
+
+El cliente no ve «tarjeta rechazada» en la misma respuesta: la página dice «Procesando…» y se actualiza sola con
+polling o Turbo Streams. A cambio, a nadie se le cobra nunca un pedido a medias.
+
+### El job
+
+No escribes ninguno. Cuando la transacción se confirma, ActiveDurable encola su propio `ActiveDurable::RunJob` con el
+id de la ejecución, en el backend de Active Job que ya usas (Solid Queue, Sidekiq, GoodJob…). Cada vez que la saga
+despierta, después de un sleep, un reintento o una señal, vuelve a encolar ese job. Los reintentos son de cada paso
+y se anotan en el cuaderno, no son del job: si tu backend también reintenta el job, la copia encuentra el lease
+tomado y termina.
+
+| Quieres | Haz esto |
+| --- | --- |
+| elegir la cola | `config.queue_name = :sagas` |
+| poner prioridad u otras opciones del job | lo mismo que con cualquier job, en un initializer: `ActiveDurable::RunJob.queue_with_priority 10` |
+| reintentar un paso más o menos veces | `retry:` en el paso, o `config.step_attempts` |
+| dejar de reintentar un fallo de negocio | `flow.abort!`, como la tarjeta rechazada de arriba |
+| ver qué está corriendo | el [dashboard](#dashboard), o `ActiveDurable::RunJob` en el panel de tu backend |
+| enterarte de una saga atascada | el [evento](#observabilidad) `blocked.active_durable` |
+| correr una saga en línea en las pruebas | `ActiveDurable::Testing.drain(id)` |
+| arrancar o despertar sagas desde tus propios jobs | llama ahí a `Durable.start` o `Durable.signal` |
+
+> No envuelvas `Durable.start` en un job tuyo. El pedido y su saga ya no se guardarían juntos, y un apagón entre los
+> dos dejaría un pedido sin saga.
 
 ## Cómo funciona
 
@@ -178,7 +274,8 @@ deshacer tienen su propio ticket, `"...:<nombre del paso>:undo"`.
 
 Cuando un paso agota sus intentos, lanza `ActiveDurable::Abort`, o la receta lanza un error, cada paso terminado se
 deshace, el último primero. Cada deshacer también queda anotado en el cuaderno, así que un apagón a mitad de deshacer
-continúa donde se quedó. Un deshacer recibe `(result, undo_ticket, step_ticket)` y toma tantos como declare.
+continúa donde se quedó. Un deshacer recibe `(result, undo_ticket, step_ticket)` y toma tantos como declare:
+`-> { ... }` no toma ninguno. También sirve cualquier objeto que responda a `call`, como `Payments.method(:refund)`.
 
 Un paso que falló no se deshace, porque no ocurrió. La excepción es un paso cuyo fallo puede esconder un éxito, como
 un cobro cuya respuesta nunca llegó: declara `undo_on_failure: true` y su deshacer corre con `nil` como resultado,
@@ -233,9 +330,9 @@ Pasa `id:` a `Durable.start` para elegir el id de la ejecución (la llamada se v
 <br>
 
 ```ruby
-reservations = flow.parallel(:reserve_stock) do |branches|
+reservations = flow.parallel :reserve_stock do |branches|
   order.warehouses.each do |warehouse|
-    branches.step(warehouse.code, undo: ->(r, ticket) { warehouse.release(r["id"], key: ticket) }) do |ticket|
+    branches.step warehouse.code, undo: ->(r, ticket) { warehouse.release(r["id"], key: ticket) } do |ticket|
       { "id" => warehouse.reserve(order.items_for(warehouse), key: ticket) }
     end
   end

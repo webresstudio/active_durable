@@ -27,6 +27,44 @@ RSpec.describe "compensation" do
     expect(notebook(execution.id).keys).to eq(%w[flight hotel car hotel:undo flight:undo])
   end
 
+  it "passes an undo only the arguments it declares, none included" do
+    calls = []
+    refunds = Class.new do
+      define_method(:refund) { |charge, ticket| calls << [:refund, charge["id"], ticket] }
+    end.new
+    Durable.define(:shop) do |flow|
+      flow.transaction(:reserve_stock, undo: -> { calls << [:release_stock] }) { { "reserved" => true } }
+      flow.step(:charge, undo: refunds.method(:refund)) { { "id" => "pi_1" } }
+      flow.step(:dispatch, retry: false) { raise "carrier down" }
+    end
+
+    execution = drain(Durable.start(:shop, id: "shop-1").id)
+
+    expect(execution.status).to eq("compensated")
+    expect(calls).to eq([[:refund, "pi_1", "shop-1:charge:undo"], [:release_stock]])
+  end
+
+  it "skips the retries of a step that calls flow.abort!, for example a declined card" do
+    undone = []
+    attempts = 0
+    Durable.define(:checkout) do |flow|
+      flow.transaction(:reserve_stock, undo: -> { undone << :reserve_stock }) { { "reserved" => true } }
+      flow.step(:charge, retry: 5) do
+        attempts += 1
+        raise ArgumentError, "card declined"
+      rescue ArgumentError => e
+        flow.abort!(e.message)
+      end
+    end
+
+    execution = drain(Durable.start(:checkout).id)
+
+    expect(execution.status).to eq("compensated")
+    expect(attempts).to eq(1)
+    expect(undone).to eq([:reserve_stock])
+    expect(execution.error["message"]).to include("Abort: card declined")
+  end
+
   it "compensates when the recipe itself raises, for example a business rule" do
     undone = []
     Durable.define(:loan) do |flow|

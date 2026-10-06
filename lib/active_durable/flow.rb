@@ -5,8 +5,8 @@ module ActiveDurable
   # be checkpointed in the notebook and skipped on replay.
   #
   #   Durable.define :checkout do |flow, order_id:|
-  #     flow.transaction(:reserve_stock, undo: ->(_) { ... }) { ... }
-  #     flow.step(:charge, undo: ->(charge, ticket) { ... }) { |ticket| ... }
+  #     flow.transaction :reserve_stock, undo: -> { ... } do ... end
+  #     flow.step :charge, undo: ->(charge, ticket) { ... } do |ticket| ... end
   #     flow.pivot(:ship) { |ticket| ... }
   #     flow.step(:email) { ... }
   #   end

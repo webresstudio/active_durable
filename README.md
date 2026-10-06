@@ -15,6 +15,7 @@
 
 <p align="center">
   <a href="#quick-start">Quick start</a> ·
+  <a href="#in-a-rails-app">In a Rails app</a> ·
   <a href="#how-it-works">How it works</a> ·
   <a href="#the-building-blocks">Building blocks</a> ·
   <a href="#dashboard">Dashboard</a> ·
@@ -62,31 +63,45 @@ CheckoutSaga = Durable.define(:checkout) do |flow, order_id:|
   order = Order.find(order_id)
 
   # Touches only your database: committed together with its checkpoint, so it runs exactly once.
-  flow.transaction(:reserve_stock, undo: ->(_) { order.release_stock! }) do
+  flow.transaction :reserve_stock, undo: -> { order.release_stock! } do
     order.reserve_stock!
     { "reserved" => true }
   end
 
   # Talks to the outside world: the ticket is an idempotency key that never changes for this step.
-  payment = flow.step(:charge,
-                      undo: lambda { |charge, ticket|
-                        Stripe::Refund.create({ payment_intent: charge["id"] }, { idempotency_key: ticket })
-                      }) do |ticket|
-    intent = Stripe::PaymentIntent.create(
-      { amount: order.total_cents, currency: "usd", customer: order.user.stripe_id, confirm: true },
-      { idempotency_key: ticket }
-    )
-    { "id" => intent.id }
+  payment = flow.step :charge, undo: ->(charge, ticket) { Payments.refund(charge, ticket) } do |ticket|
+    Payments.charge(order, ticket)
+  rescue Stripe::CardError => e
+    flow.abort!(e.message) # a declined card is not retried: the stock is released right away
   end
 
   # The point of no return: before it failures are undone, after it steps are retried.
-  flow.pivot(:dispatch) do |ticket|
+  flow.pivot :dispatch do |ticket|
     { "tracking" => Carrier.ship(order.id, reference: ticket).tracking_number, "payment" => payment["id"] }
   end
 
   flow.step(:confirmation_email) { OrderMailer.shipped(order.id).deliver_now && true }
   flow.sleep(:wait_for_delivery, 3.days) # no worker is held while it sleeps
   flow.step(:ask_for_review) { ReviewMailer.ask(order.id).deliver_now && true }
+end
+```
+
+The calls to Stripe live in a plain module, doing and undoing side by side. The recipe hands them the ticket:
+
+```ruby
+# app/services/payments.rb
+module Payments
+  def self.charge(order, ticket)
+    intent = Stripe::PaymentIntent.create(
+      { amount: order.total_cents, currency: "usd", customer: order.user.stripe_id, confirm: true },
+      { idempotency_key: ticket }
+    )
+    { "id" => intent.id } # written in the notebook, so it must fit in JSON
+  end
+
+  def self.refund(charge, ticket)
+    Stripe::Refund.create({ payment_intent: charge["id"] }, { idempotency_key: ticket })
+  end
 end
 ```
 
@@ -111,6 +126,85 @@ production:
 ```
 
 > `Durable` is a short alias for `ActiveDurable`. It is skipped if your app already defines a `Durable` constant.
+
+## In a Rails app
+
+```text
+app/
+  sagas/checkout_saga.rb            the recipe
+  services/payments.rb              charge and refund, side by side
+  services/place_order.rb           creates the order and starts the saga
+  controllers/orders_controller.rb  calls PlaceOrder and answers right away
+```
+
+The controller never calls Stripe. It starts the saga and answers at once; a job runs the steps.
+
+```ruby
+# app/services/place_order.rb
+class PlaceOrder
+  def self.call(params)
+    Order.transaction do
+      order = Order.create!(params)
+      Durable.start(:checkout, id: "checkout-#{order.id}", order_id: order.id)
+      order
+    end
+  end
+end
+
+# app/controllers/orders_controller.rb
+class OrdersController < ApplicationController
+  def create
+    redirect_to PlaceOrder.call(order_params)
+  end
+
+  def show
+    @order = Order.find(params[:id])
+  end
+end
+
+# app/models/order.rb
+class Order < ApplicationRecord
+  def checkout
+    Durable.find("checkout-#{id}")
+  end
+end
+```
+
+The `id:` ties the saga to its order, so the order page can show where the saga is:
+
+```erb
+<%# app/views/orders/show.html.erb %>
+<% case @order.checkout.status %>
+<% when "completed" %>   Your order is confirmed.
+<% when "compensated" %> We could not complete it and refunded you.
+<% when "blocked" %>     We are looking into it.
+<% else %>               Processing…
+<% end %>
+```
+
+The customer does not see "card declined" in the same response: the page says "Processing…" and updates itself
+with polling or Turbo Streams. In exchange, nobody is ever charged for half an order.
+
+### The job
+
+You do not write one. Once the transaction commits, ActiveDurable enqueues its own `ActiveDurable::RunJob` with the
+execution id, on the Active Job backend you already use (Solid Queue, Sidekiq, GoodJob…). Every time the saga wakes
+up, after a sleep, a retry or a signal, it enqueues that job again. Retries belong to each step and are written in
+the notebook, not to the job: if your backend retries the job too, the copy finds the lease taken and returns.
+
+| You want to | Do this |
+| --- | --- |
+| choose the queue | `config.queue_name = :sagas` |
+| set a priority or other job options | the same as for any job, in an initializer: `ActiveDurable::RunJob.queue_with_priority 10` |
+| retry a step more or fewer times | `retry:` on the step, or `config.step_attempts` |
+| stop retrying a business failure | `flow.abort!`, like the declined card above |
+| see what is running | the [dashboard](#dashboard), or `ActiveDurable::RunJob` in your backend's UI |
+| hear about a stuck saga | the `blocked.active_durable` [event](#observability) |
+| run a saga inline in tests | `ActiveDurable::Testing.drain(id)` |
+| start or wake sagas from your own jobs | call `Durable.start` or `Durable.signal` there |
+
+> Do not wrap `Durable.start` in a job of your own. The order and its saga would no longer be saved together, and a
+> crash between the two would leave an order without a saga.
 
 ## How it works
 
@@ -178,7 +272,8 @@ idempotency key, Stripe answers with the first result instead of charging twice.
 
 When a step runs out of attempts, raises `ActiveDurable::Abort`, or the recipe raises, every finished step is undone,
 last one first. Each undo is written in the notebook too, so a crash in the middle of undoing resumes where it
-stopped. An undo receives `(result, undo_ticket, step_ticket)` and takes as many as it declares.
+stopped. An undo receives `(result, undo_ticket, step_ticket)` and takes as many as it declares: `-> { ... }` takes
+none. Any object that responds to `call` works too, such as `Payments.method(:refund)`.
 
 A step that failed is not undone, because it did not happen. The exception is a step whose failure may hide a
 success, like a charge whose answer timed out: declare `undo_on_failure: true` and its undo runs with `nil` as the
@@ -232,9 +327,9 @@ Pass `id:` to `Durable.start` to choose the execution id (the call becomes idemp
 <br>
 
 ```ruby
-reservations = flow.parallel(:reserve_stock) do |branches|
+reservations = flow.parallel :reserve_stock do |branches|
   order.warehouses.each do |warehouse|
-    branches.step(warehouse.code, undo: ->(r, ticket) { warehouse.release(r["id"], key: ticket) }) do |ticket|
+    branches.step warehouse.code, undo: ->(r, ticket) { warehouse.release(r["id"], key: ticket) } do |ticket|
       { "id" => warehouse.reserve(order.items_for(warehouse), key: ticket) }
     end
   end

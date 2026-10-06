@@ -7,6 +7,14 @@ regenerate the migration when upgrading.
 
 ## [Unreleased]
 
+### Changed
+
+- README: the quick start recipe reads top to bottom, with one-line undos and the Stripe calls in a `Payments`
+  module where charging and refunding sit side by side. A new section, "In a Rails app", shows where each piece goes
+  (service, controller, model, view) and how the job is managed when the gem owns it.
+- Specs cover undos without arguments (`-> { ... }`), a `Method` as an undo, and `flow.abort!` inside a step, which
+  skips the step's remaining retries.
+
 ## [0.5.0] - 2026-10-06
 
 More Ruby and Rails versions, and a README in two languages.
