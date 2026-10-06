@@ -52,6 +52,11 @@ module ActiveDurable
       tag.time(absolute, datetime: time.utc.iso8601, title: absolute, data: { relative: true })
     end
 
+    # Lets long step names wrap after an underscore instead of in the middle of a word.
+    def breakable(name)
+      safe_join(name.to_s.split(/(?<=_)/), tag.wbr)
+    end
+
     def ticket_for(execution, step)
       "#{execution.id}:#{step.name}"
     end

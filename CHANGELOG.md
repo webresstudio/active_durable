@@ -16,6 +16,10 @@ regenerate the migration when upgrading.
   (54 jobs). Each job resolves its own gems from `gemfiles/rails-X.Y.gemfile`; per-Rails lockfiles are no longer
   committed, so they can never fall behind the gem version (which broke the 0.4.0 CI run).
 
+- The README is rewritten, with animated explanations (`docs/assets/*.svg`, built by `docs/assets/generate.rb`),
+  dashboard screenshots, a state diagram and a compatibility table.
+- Dashboard: long step names wrap at underscores, and notebook results get room to breathe.
+
 ### Fixed
 
 - The packaged gem no longer includes `gemfiles/`.

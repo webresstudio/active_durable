@@ -185,7 +185,7 @@
     .block .top { display: flex; justify-content: space-between; align-items: center; font-size: .78rem; color: var(--soft); }
     .block .kind { font-weight: 700; }
     .block .no { font: 800 .9rem/1 var(--f-round); color: var(--c, var(--soft)); }
-    .block h3 { font-size: 1.05rem; overflow-wrap: anywhere; }
+    .block h3 { font-size: 1.05rem; overflow-wrap: break-word; }
     .block .state { font-weight: 700; color: var(--c, var(--soft)); font-size: .88rem; }
     .block .meta { color: var(--soft); font-size: .8rem; }
     .block .peek { font: .74rem/1.3 var(--f-code); color: var(--soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -245,6 +245,7 @@
     .json-block { font: .8rem/1.5 var(--f-code); background: var(--sunken); padding: 12px; border-radius: 10px; margin: 0; overflow-x: auto; }
     .k { font-size: .76rem; color: var(--soft); font-weight: 700; margin-left: 4px; }
     code.ticket { white-space: nowrap; overflow-wrap: normal; }
+    td.result { min-width: 20ch; }
     .k-pivot-word { color: var(--amber); }
     .error { color: var(--ruby); }
     dl.facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 14px; margin: 0; }

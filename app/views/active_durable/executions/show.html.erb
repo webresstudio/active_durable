@@ -80,7 +80,7 @@
               <span class="kind <%= "k-pivot-word" if item.kind == "pivot" %>"><%= item.kind == "ghost" ? "up next" : item.kind %></span>
               <% if item.step&.position %><span class="no"><%= item.step.position %></span><% end %>
             </div>
-            <h3><%= item.kind == "ghost" ? "…" : item.name %></h3>
+            <h3><%= item.kind == "ghost" ? "…" : breakable(item.name) %></h3>
             <p class="state"><%= state_word(item.state).capitalize %></p>
             <% if item.step && item.step.attempts.to_i > 1 %><p class="meta"><%= item.step.attempts %> attempts</p><% end %>
             <% if wake_at && %w[retrying sleeping waiting].include?(item.state) %>
@@ -144,7 +144,7 @@
                 </td>
                 <td><%= status_pill(step.status) %></td>
                 <td><%= step.attempts %></td>
-                <td><%= json_preview(step.result) %></td>
+                <td class="result"><%= json_preview(step.result) %></td>
                 <td class="error"><%= step.error&.dig("message").to_s.truncate(120) %></td>
               </tr>
             <% end %>
