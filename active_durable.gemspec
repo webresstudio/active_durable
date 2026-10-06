@@ -16,9 +16,13 @@ Gem::Specification.new do |spec|
     are retried. No Redis and no extra servers: just Active Record and Active Job.
   DESC
   spec.license = "MIT"
+  spec.homepage = "https://github.com/williamromero/active_durable"
   spec.required_ruby_version = ">= 3.3.0"
 
-  spec.metadata["changelog_uri"] = "https://rubygems.org/gems/active_durable"
+  spec.metadata["homepage_uri"] = spec.homepage
+  spec.metadata["source_code_uri"] = spec.homepage
+  spec.metadata["changelog_uri"] = "#{spec.homepage}/blob/main/CHANGELOG.md"
+  spec.metadata["bug_tracker_uri"] = "#{spec.homepage}/issues"
   spec.metadata["rubygems_mfa_required"] = "true"
 
   # Only ship what the gem needs at runtime: the design notes in docs/ stay in the repo.
