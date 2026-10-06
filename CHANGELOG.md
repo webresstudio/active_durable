@@ -7,13 +7,18 @@ regenerate the migration when upgrading.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-05
+
+The dashboard, redrawn.
+
 ### Changed
 
-- The dashboard is redrawn full screen: a rail with statuses and recipes, and every saga shown as toy blocks.
+- The dashboard is redrawn full screen: a rail with statuses and recipes, and every saga shown as a row of blocks.
   Each block's animation tells its state (running beats, a waiting step pings like a radar, a sleeping one fills
   a ring until it wakes, a failed one shakes, undone ones are striped and wired backwards), with a visible point
   of no return, live countdowns, and a live mode that refreshes the list and flashes the rows that changed.
   Animations stop when the system asks for reduced motion.
+- The gemspec links to the GitHub repository (homepage, source, changelog and issues).
 
 ## [0.3.0] - 2026-10-05
 
