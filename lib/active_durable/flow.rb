@@ -172,7 +172,7 @@ module ActiveDurable
       ActiveDurable.crash_point(:before_step, name)
       result = ActiveDurable.instrument("step", execution_id: execution_id, step: name, kind: kind) do
         if kind == "transaction"
-          Record.transaction { record_result(name, kind, position, block.call(ticket)) }
+          @notebook.transaction { record_result(name, kind, position, block.call(ticket)) }
         else
           record_result(name, kind, position, block.call(ticket))
         end
@@ -265,7 +265,7 @@ module ActiveDurable
 
     def consume_signal(signal, name, position)
       payload = signal.payload
-      Record.transaction do
+      @notebook.transaction do
         taken = SignalRecord.where(id: signal.id, consumed_at: nil).update_all(consumed_at: now)
         raise LeaseLost, "signal #{signal.id} for #{execution_id} was already consumed" if taken.zero?
 

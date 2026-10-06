@@ -13,8 +13,8 @@ ActiveJob::Base.queue_adapter = :test
 TestDatabase.setup!
 
 module DurableHelpers
-  def drain(execution_id, **)
-    ActiveDurable::Testing.drain(execution_id, **)
+  def drain(execution_id, **options)
+    ActiveDurable::Testing.drain(execution_id, **options)
   end
 
   def enqueued_runs

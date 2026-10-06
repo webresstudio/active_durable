@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
+require "logger" # concurrent-ruby 1.3.5+ no longer loads it, and older Active Support expects it
 require "securerandom"
+require "set"
 require "time"
 require "active_support"
 require "active_support/core_ext"

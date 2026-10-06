@@ -11,3 +11,6 @@
 .rspec_status
 
 /log/
+
+# Each CI job resolves its own gems for its Ruby version
+/gemfiles/*.lock

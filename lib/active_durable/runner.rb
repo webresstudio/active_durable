@@ -116,7 +116,7 @@ module ActiveDurable
       ActiveDurable.crash_point(:before_undo, entry.name)
       ActiveDurable.instrument("undo", execution_id: execution.id, step: entry.name) do
         if entry.kind == "transaction"
-          Record.transaction { call_undo(entry, ticket, name) }
+          notebook.transaction { call_undo(entry, ticket, name) }
         else
           call_undo(entry, ticket, name)
         end

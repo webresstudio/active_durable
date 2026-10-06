@@ -7,10 +7,17 @@ regenerate the migration when upgrading.
 
 ## [Unreleased]
 
+### Changed
+
+- Supports Ruby 3.1+ and Rails 7.1+ (was Ruby 3.3+ and Rails 7.2+), with every feature on every version. The
+  notebook no longer relies on `ActiveRecord.after_all_transactions_commit`: `flow.transaction` steps and their
+  undos run inside `Notebook#transaction`, which remembers their writes only once the transaction commits.
+- CI covers Ruby 3.1, 3.2, 3.3, 3.4 and 4.0 against Rails 7.1, 7.2, 8.0 and 8.1 and the three databases
+  (54 jobs). Each job resolves its own gems from `gemfiles/rails-X.Y.gemfile`; per-Rails lockfiles are no longer
+  committed, so they can never fall behind the gem version (which broke the 0.4.0 CI run).
+
 ### Fixed
 
-- CI: the Rails 7.2 and 8.0 lockfiles still recorded version 0.3.0, so frozen installs failed. A spec now checks
-  them, and `rake gemfiles:lock` relocks them after a version or gemspec change.
 - The packaged gem no longer includes `gemfiles/`.
 
 ## [0.4.0] - 2026-10-05

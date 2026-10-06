@@ -1,0 +1,10 @@
+# frozen_string_literal: true
+
+source "https://rubygems.org"
+
+gemspec path: ".."
+
+%w[actionpack actionview activejob activerecord activesupport railties].each { |name| gem name, "~> 8.1.0" }
+gem "sqlite3", ">= 2.1"
+
+eval_gemfile "shared.gemfile"

@@ -90,7 +90,8 @@ module ActiveDurable
           elsif entry&.failed? then outcomes[branch.full_name] = [:failed, StepFailed.new(branch.full_name)]
           elsif entry&.retrying? && entry.wake_at && entry.wake_at > now
             outcomes[branch.full_name] = [:retry, entry.wake_at]
-          else runnable << branch
+          else
+            runnable << branch
           end
         end
         runnable.each_slice(config.parallel_concurrency) { |slice| outcomes.merge!(run_threads(slice)) }
@@ -148,7 +149,7 @@ module ActiveDurable
         result = ActiveDurable.instrument("step", execution_id: execution_id, step: branch.full_name,
                                                   kind: branch.kind) do
           if branch.kind == "transaction"
-            Record.transaction { record_result(branch.full_name, branch.kind, nil, branch.block.call(ticket)) }
+            @notebook.transaction { record_result(branch.full_name, branch.kind, nil, branch.block.call(ticket)) }
           else
             record_result(branch.full_name, branch.kind, nil, branch.block.call(ticket))
           end

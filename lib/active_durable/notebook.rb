@@ -50,32 +50,51 @@ module ActiveDurable
       write!(name, kind: kind, position: position, status: "waiting", wake_at: wake_at)
     end
 
+    # Runs the block in a database transaction and remembers the notebook writes made inside it only once it
+    # commits. flow.transaction steps and their undos use it: a step that rolled back must not look completed.
+    def transaction(&)
+      pending = []
+      Thread.current[pending_key] = pending
+      result = Record.transaction(&)
+      pending.each { |name, entry| remember(name, entry) }
+      result
+    ensure
+      Thread.current[pending_key] = nil
+    end
+
     private
 
     # The database write happens outside the mutex, so a slow transaction in one branch never blocks
-    # another branch while it holds the lock (SQLite would deadlock).
+    # another branch while it holds the lock (SQLite would deadlock). Existing entries are updated with
+    # update_all and read back, so the object other code holds never changes before the write commits.
     def write!(name, **attributes)
       now = ActiveDurable.now
-      entry = self[name]
-      Record.transaction do
+      current = self[name]
+      entry = Record.transaction do
         @lease.renew!
-        if entry
-          entry.update_columns(attributes.merge(updated_at: now))
+        if current
+          Step.where(id: current.id).update_all(attributes.merge(updated_at: now))
+          Step.find(current.id)
         else
-          entry = Step.create!(execution_id: @execution.id, name: name, created_at: now, updated_at: now, **attributes)
+          Step.create!(execution_id: @execution.id, name: name, created_at: now, updated_at: now, **attributes)
         end
       end
-      remember = lambda do
-        @mutex.synchronize do
-          @entries[name] = entry
-          @by_position[entry.position] = entry if entry.position
-        end
-      end
-      # Inside flow.transaction the outer transaction may still roll back: only remember what commits.
-      Record.connection.transaction_open? ? ActiveRecord.after_all_transactions_commit(&remember) : remember.call
+      pending = Thread.current[pending_key]
+      pending ? pending << [name, entry] : remember(name, entry)
       entry
     rescue ActiveRecord::RecordNotUnique
       raise LeaseLost, "another worker already wrote :#{name} for #{@execution.id}"
+    end
+
+    def remember(name, entry)
+      @mutex.synchronize do
+        @entries[name] = entry
+        @by_position[entry.position] = entry if entry.position
+      end
+    end
+
+    def pending_key
+      @pending_key ||= :"active_durable_notebook_#{object_id}"
     end
   end
 end

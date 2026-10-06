@@ -6,5 +6,6 @@ gemspec path: ".."
 
 %w[actionpack actionview activejob activerecord activesupport railties].each { |name| gem name, "~> 8.0.0" }
 gem "json", "< 3" # Active Support 8.0 still passes quirks_mode to JSON.generate, which json 3 removed
+gem "sqlite3", ">= 2.1"
 
 eval_gemfile "shared.gemfile"
