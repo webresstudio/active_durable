@@ -121,3 +121,35 @@ RSpec.describe "The dashboard in an API-only app" do
     end
   end
 end
+
+RSpec.describe "The dashboard with unusual ids" do
+  include Rack::Test::Methods
+
+  def app
+    Dummy::Application
+  end
+
+  it "lists and opens executions whose ids have dots, spaces, %, ? and accents" do
+    Durable.define(:imp) { |flow| flow.step(:a) { true } }
+    ids = ["v1.2", "import 7", "50%", "why?", "pedido-ñandú"]
+    ids.each { |id| drain(Durable.start(:imp, id: id).id) }
+
+    get "/durable"
+    expect(last_response.status).to eq(200)
+
+    ids.each do |id|
+      get "/durable/executions/#{ERB::Util.url_encode(id)}"
+      expect(last_response.status).to eq(200)
+      expect(last_response.body).to include(ERB::Util.html_escape(id))
+    end
+  end
+
+  it "keeps the list working with an id saved by an older version that has a slash" do
+    ActiveDurable::Execution.create!(id: "imports/2026-10-07", recipe: "imp", status: "completed")
+
+    get "/durable"
+
+    expect(last_response.status).to eq(200)
+    expect(last_response.body).to include("imports/2026-10-07")
+  end
+end

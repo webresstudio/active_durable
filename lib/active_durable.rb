@@ -119,7 +119,8 @@ module ActiveDurable
     # @param input [Hash] keyword arguments for the recipe; stored as JSON
     # @return [Execution]
     # @raise [UnknownRecipe] if no recipe has that name
-    # @raise [ArgumentError] if the id already belongs to an execution of another recipe
+    # @raise [ArgumentError] if the id already belongs to an execution of another recipe, or is blank, has a "/",
+    #   a NUL character or bytes that are not UTF-8
     # @raise [NotSerializable] if the input cannot be stored as JSON
     # @example
     #   Durable.start(:checkout, id: "checkout-#{order.id}", order_id: order.id)
@@ -129,16 +130,29 @@ module ActiveDurable
                      input: Serializer.normalize(input, "input") }
       return Execution.create!(attributes.merge(id: "#{recipe.name}-#{SecureRandom.uuid}")) if id.nil?
 
+      id = check_id!(id)
       execution = begin
-        Execution.create_or_find_by!(id: id.to_s) { |record| record.assign_attributes(attributes) }
+        Execution.create_or_find_by!(id: id) { |record| record.assign_attributes(attributes) }
       rescue ActiveRecord::RecordNotFound
         # Rails < 7.1 on MySQL: inside the app's transaction, the plain read after the duplicate insert uses an
         # older snapshot and misses the row another start just committed. A locking read sees it.
-        Execution.lock.find(id.to_s)
+        Execution.lock.find(id)
       end
       return execution if execution.recipe == recipe.name
 
       raise ArgumentError, "execution #{id} already exists for recipe :#{execution.recipe}"
+    end
+
+    # @api private
+    def check_id!(id)
+      id = Serializer.normalize(id.to_s, "the execution id")
+      raise ArgumentError, "execution ids cannot be blank" if id.strip.empty?
+      return id unless id.include?("/")
+
+      raise ArgumentError, "execution ids cannot contain \"/\" (#{id}): the dashboard could not route them. " \
+                           "Use - or : instead."
+    rescue NotSerializable => e
+      raise ArgumentError, e.message
     end
 
     # Delivers a signal to a saga waiting, now or later, in flow.wait_for(name). A signal that arrives before the

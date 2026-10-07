@@ -57,6 +57,13 @@ module ActiveDurable
       safe_join(name.to_s.split(/(?<=_)/), tag.wbr)
     end
 
+    # Ids with a slash cannot be routed; versions before 0.7 accepted them, so they are listed without a link.
+    def execution_link(id, **options)
+      return tag.span(id, title: "Ids with a slash have no page; use the console", **options) if id.include?("/")
+
+      link_to(id, execution_path(id), **options)
+    end
+
     def ticket_for(execution, step)
       "#{execution.id}:#{step.name}"
     end

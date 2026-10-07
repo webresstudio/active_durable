@@ -58,12 +58,18 @@ module ActiveDurable
     end
 
     # Runs the block in a database transaction and remembers the notebook writes made inside it only once it
-    # commits. flow.transaction steps and their undos use it: a step that rolled back must not look completed.
-    def transaction(&)
+    # commits. flow.transaction steps, their undos and hooks use it: a step that rolled back must not look
+    # completed. With `records:`, the block must have recorded that entry: Active Record swallows
+    # ActiveRecord::Rollback, so a block that raised it would otherwise look done.
+    def transaction(records: nil, &)
       pending = []
       Thread.current[pending_key] = pending
       result = Record.transaction(&)
       pending.each { |name, entry| remember(name, entry) }
+      if records && !self[records]&.completed?
+        raise Error, ":#{records} rolled back (ActiveRecord::Rollback), so nothing was recorded. Raise an error " \
+                     "or call flow.abort! to make it fail."
+      end
       result
     ensure
       Thread.current[pending_key] = nil

@@ -128,7 +128,7 @@ module ActiveDurable
 
       ActiveDurable.crash_point(:before_hook, name)
       ActiveDurable.instrument("hook", execution_id: execution.id, step: name, kind: "hook") do
-        notebook.transaction do
+        notebook.transaction(records: name) do
           hook.call
           ActiveDurable.crash_point(:after_hook_call, name)
           notebook.complete!(name, kind: "hook", position: nil, result: nil)
@@ -152,7 +152,7 @@ module ActiveDurable
       ActiveDurable.crash_point(:before_undo, entry.name)
       ActiveDurable.instrument("undo", execution_id: execution.id, step: entry.name) do
         if entry.kind == "transaction"
-          notebook.transaction { call_undo(entry, ticket, name) }
+          notebook.transaction(records: name) { call_undo(entry, ticket, name) }
         else
           call_undo(entry, ticket, name)
         end

@@ -51,3 +51,63 @@ RSpec.describe "ids and step names" do
     expect(result.id).to eq("dup-1")
   end
 end
+
+RSpec.describe "Durable.start ids" do
+  before { Durable.define(:checkout) { |flow| flow.step(:a) { true } } }
+
+  it "refuses a slash, which the dashboard cannot route" do
+    expect { Durable.start(:checkout, id: "imports/2026-10-07") }.to raise_error(ArgumentError, %r{cannot contain "/"})
+  end
+
+  it "refuses blank ids, NUL characters and bytes that are not UTF-8" do
+    ["", " ", "a\u0000b", "Jos\xE9".b].each do |id|
+      expect { Durable.start(:checkout, id: id) }.to raise_error(ArgumentError)
+    end
+  end
+end
+
+RSpec.describe "ActiveRecord::Rollback inside flow.transaction" do
+  it "is not taken for success: nothing was recorded, so the step fails and its undo does not run" do
+    runs = 0
+    undone = []
+    Durable.define(:reserve) do |flow|
+      flow.step(:before, undo: -> { undone << :before }) { true }
+      flow.transaction(:reserve, undo: -> { undone << :reserve }, retry: 2) do
+        runs += 1
+        raise ActiveRecord::Rollback
+      end
+    end
+
+    execution = drain(Durable.start(:reserve).id)
+
+    expect(execution.status).to eq("compensated")
+    expect(runs).to eq(2)
+    expect(undone).to eq([:before])
+    expect(execution.error["message"]).to include("rolled back")
+  end
+
+  it "still counts a step whose nested transaction rolled back on its own" do
+    Durable.define(:reserve) do |flow|
+      flow.transaction(:reserve) do
+        ActiveRecord::Base.transaction(requires_new: true) { raise ActiveRecord::Rollback }
+        { "ok" => true }
+      end
+    end
+
+    execution = drain(Durable.start(:reserve).id)
+
+    expect(execution.status).to eq("completed")
+  end
+
+  it "blocks when a hook rolls back instead of looking done" do
+    Durable.define(:reserve) do |flow|
+      flow.on(:completed) { raise ActiveRecord::Rollback }
+      flow.step(:a) { true }
+    end
+
+    execution = drain(Durable.start(:reserve).id)
+
+    expect(execution).to have_attributes(status: "blocked")
+    expect(execution.error["class"]).to eq("ActiveDurable::HookFailed")
+  end
+end

@@ -292,7 +292,7 @@ module ActiveDurable
       ActiveDurable.crash_point(:before_step, name)
       result = ActiveDurable.instrument("step", execution_id: execution_id, step: name, kind: kind) do
         if kind == "transaction"
-          @notebook.transaction { record_result(name, kind, position, block.call(ticket)) }
+          @notebook.transaction(records: name) { record_result(name, kind, position, block.call(ticket)) }
         else
           record_result(name, kind, position, block.call(ticket))
         end

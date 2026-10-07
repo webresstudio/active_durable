@@ -43,7 +43,7 @@
           <% items = track_items(execution, @steps_by_execution.fetch(execution.id, [])) %>
           <tr data-id="<%= execution.id %>" data-status="<%= execution.status %>">
             <td class="exec">
-              <%= link_to execution.id, execution_path(execution), class: "exec-link" %>
+              <%= execution_link(execution.id, class: "exec-link") %>
               <span class="recipe"><%= execution.recipe %>, version <%= execution.recipe_version %></span>
             </td>
             <td>

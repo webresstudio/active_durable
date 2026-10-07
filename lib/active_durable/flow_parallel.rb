@@ -174,7 +174,9 @@ module ActiveDurable
         result = ActiveDurable.instrument("step", execution_id: execution_id, step: branch.full_name,
                                                   kind: branch.kind) do
           if branch.kind == "transaction"
-            @notebook.transaction { record_result(branch.full_name, branch.kind, nil, branch.block.call(ticket)) }
+            @notebook.transaction(records: branch.full_name) do
+              record_result(branch.full_name, branch.kind, nil, branch.block.call(ticket))
+            end
           else
             record_result(branch.full_name, branch.kind, nil, branch.block.call(ticket))
           end

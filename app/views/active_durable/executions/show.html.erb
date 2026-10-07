@@ -15,7 +15,7 @@
       Started <%= when_text(@execution.created_at) %>, last change <%= when_text(@execution.updated_at) %>.
       <% if @execution.wake_at %>Wakes <%= when_text(@execution.wake_at) %>.<% end %>
       <% if @execution.forked_from %>
-        Rerun of <%= link_to @execution.forked_from, execution_path(@execution.forked_from), class: "mono" %>.
+        Rerun of <%= execution_link(@execution.forked_from, class: "mono") %>.
       <% end %>
     </p>
   </div>
@@ -199,7 +199,7 @@
       <section class="panel">
         <h2>Reruns</h2>
         <% @reruns.each do |rerun| %>
-          <p><%= link_to rerun.id, execution_path(rerun), class: "mono" %> <%= status_pill(rerun.status) %></p>
+          <p><%= execution_link(rerun.id, class: "mono") %> <%= status_pill(rerun.status) %></p>
         <% end %>
       </section>
     <% end %>
