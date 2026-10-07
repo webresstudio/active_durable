@@ -63,6 +63,7 @@ Write the recipe once, in `app/sagas/`:
 # app/sagas/checkout_saga.rb
 CheckoutSaga = Durable.define(:checkout) do |flow, order_id:|
   order = Order.find(order_id)
+  flow.on(:compensated) { order.update!(status: "cancelled") } # once every finished step was undone
 
   # Touches only your database: committed together with its checkpoint, so it runs exactly once.
   flow.transaction :reserve_stock, undo: -> { order.release_stock! } do
@@ -81,6 +82,7 @@ CheckoutSaga = Durable.define(:checkout) do |flow, order_id:|
   flow.pivot :dispatch do |ticket|
     { "tracking" => Carrier.ship(order.id, reference: ticket).tracking_number, "payment" => payment["id"] }
   end
+  flow.transaction(:mark_shipped) { order.update!(status: "shipped") } # your own status, for your pages
 
   flow.step(:confirmation_email) { OrderMailer.shipped(order.id).deliver_now && true }
   flow.sleep(:wait_for_delivery, 3.days) # no worker is held while it sleeps
@@ -254,15 +256,16 @@ class Order < ApplicationRecord
 end
 ```
 
-The `id:` ties the saga to its order, so the order page can show where the saga is:
+The `id:` ties the saga to its order: `order.checkout` is for your team and the dashboard. The page shows the order's
+own status, which the saga writes as it goes (`mark_shipped`, `flow.on(:compensated)`), not the saga's: a shipped
+order still has a saga sleeping three days before it asks for a review.
 
 ```erb
 <%# app/views/orders/show.html.erb %>
-<% case @order.checkout.status %>
-<% when "completed" %>   Your order is confirmed.
-<% when "compensated" %> We could not complete it and refunded you.
-<% when "blocked" %>     We are looking into it.
-<% else %>               Processing…
+<% case @order.status %>
+<% when "shipped" %>   Your order is on its way.
+<% when "cancelled" %> We could not complete it and refunded you.
+<% else %>             Processing…
 <% end %>
 ```
 
@@ -386,6 +389,7 @@ Three rules follow from replaying the recipe:
 | `flow.parallel(name) { \|branches\| ... }` | several steps at the same time | each branch like a step |
 | `flow.sleep(name, 3.days)` | waiting without holding a worker | — |
 | `flow.wait_for(name, timeout:)` | waiting for `Durable.signal` | a timeout fails the saga |
+| `flow.on(:completed) { ... }` | updating your own records when the saga ends (also `:compensated`) | blocks; a retry runs the hook again |
 
 Steps take `undo:`, `retry:` (`3`, `false` or `{ attempts:, backoff: }`) and `undo_on_failure:`.
 
@@ -439,6 +443,32 @@ end
 A shipped parcel or a wire transfer cannot be undone. Mark that step with `flow.pivot`. Before it, a failure undoes
 everything. After it, steps cannot declare `undo:` and are retried with backoff (`config.after_pivot_attempts`,
 25 by default); if they still fail, the execution is **blocked** for a person.
+
+</details>
+
+<details>
+<summary><b>When a saga ends: hooks</b></summary>
+
+<br>
+
+`flow.on(:completed)` and `flow.on(:compensated)` run once the saga ends that way, to update your own records:
+
+```ruby
+CheckoutSaga = Durable.define(:checkout) do |flow, order_id:|
+  order = Order.find(order_id)
+  flow.on(:completed) { order.update!(status: "delivered") }
+  flow.on(:compensated) { order.update!(status: "cancelled") }
+
+  flow.transaction(:reserve_stock, undo: -> { order.release_stock! }) { ... }
+end
+```
+
+Declare them before the first step: a saga undone at its first step never reaches the lines after it. `completed`
+runs after the last step and `compensated` after the last undo, each in a transaction together with the notebook
+entry that records it, so a hook that only touches your database runs exactly once, even if the process dies. If a
+hook raises, the execution is blocked, and `ActiveDurable.retry` runs the hook again, not the steps.
+
+For progress before the end (paid, shipped), write a step: `flow.transaction(:mark_shipped) { ... }`.
 
 </details>
 
@@ -587,7 +617,7 @@ end
 
 | Event | Payload |
 | --- | --- |
-| `execution` / `step` / `compensation` / `undo` | `execution_id` (and `recipe`, `step`, `kind`) |
+| `execution` / `step` / `compensation` / `undo` / `hook` | `execution_id` (and `recipe`, `step`, `kind`) |
 | `completed` / `compensated` | `execution_id`, `recipe` |
 | `blocked` | `execution_id`, `recipe`, `error` |
 | `retried` / `compensation_requested` / `rerun` | operator actions |

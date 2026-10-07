@@ -705,6 +705,8 @@ footer a:hover { color: var(--ink); }
     "c.declined": "no retries: undo what was done",
     "c.pivot": "The point of no return: after it, steps are retried, never undone.",
     "c.json": "written in the notebook",
+    "c.hook": "once every finished step was undone",
+    "c.state": "your own status, for your pages",
     "c.translate": "the recipe speaks your language, not Stripe's",
     "c.together": "Saved with the order; its job is enqueued after the commit.",
     "c.once": "one charge, wherever it crashed",
@@ -908,6 +910,8 @@ footer a:hover { color: var(--ink); }
     "c.declined": "sin reintentos: deshace lo hecho",
     "c.pivot": "El punto de no retorno: después de él, los pasos se reintentan, nunca se deshacen.",
     "c.json": "se anota en el cuaderno",
+    "c.hook": "cuando todo lo terminado ya se deshizo",
+    "c.state": "tu propio estado, para tus páginas",
     "c.translate": "la receta habla tu idioma, no el de Stripe",
     "c.together": "Se guarda con el pedido; su job se encola después del COMMIT.",
     "c.once": "un cobro, se haya apagado donde se haya apagado",
@@ -1015,6 +1019,7 @@ footer a:hover { color: var(--ink); }
     recipe: { file: "app/sagas/checkout_saga.rb", note: "note.recipe", text: [
       "CheckoutSaga = Durable.define(:checkout) do |flow, order_id:|",
       "  order = Order.find(order_id)",
+      "  flow.on(:compensated) { order.update!(status: \"cancelled\") } # {{c.hook}}",
       "",
       "  # {{c.db}}",
       "  flow.transaction :reserve_stock, undo: -> { order.release_stock! } do",
@@ -1033,6 +1038,7 @@ footer a:hover { color: var(--ink); }
       "  flow.pivot :dispatch do |ticket|",
       "    { \"tracking\" => Carrier.ship(order.id, reference: ticket).tracking_number, \"payment\" => payment[\"id\"] }",
       "  end",
+      "  flow.transaction(:mark_shipped) { order.update!(status: \"shipped\") } # {{c.state}}",
       "",
       "  flow.step(:confirmation_email) { OrderMailer.shipped(order.id).deliver_now && true }",
       "end"

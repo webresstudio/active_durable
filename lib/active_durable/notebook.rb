@@ -20,7 +20,7 @@ module ActiveDurable
     # Completed branch entries of a flow.parallel, in the order they finished.
     def branches_of(parallel_name)
       prefix = "#{parallel_name}/"
-      @mutex.synchronize { @entries.values.select { |entry| entry.name.start_with?(prefix) && !entry.undo? } }
+      @mutex.synchronize { @entries.values.select { |entry| entry.name.start_with?(prefix) && entry.forward? } }
             .sort_by { |entry| [entry.updated_at, entry.id] }
     end
 
@@ -29,7 +29,7 @@ module ActiveDurable
     end
 
     def forward_entries
-      @mutex.synchronize { @entries.values.reject(&:undo?) }
+      @mutex.synchronize { @entries.values.select(&:forward?) }
     end
 
     def complete!(name, kind:, position:, result:)

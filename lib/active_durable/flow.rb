@@ -13,6 +13,7 @@ module ActiveDurable
   class Flow
     UndoEntry = Struct.new(:name, :kind, :result, :undo)
     STEP_OPTIONS = %i[retry undo_on_failure].freeze
+    HOOK_EVENTS = %i[completed compensated].freeze
 
     attr_reader :undo_stack
 
@@ -25,6 +26,7 @@ module ActiveDurable
       @position = 0
       @seen = {}
       @undo_stack = []
+      @hooks = {}
     end
 
     def execution_id
@@ -63,6 +65,29 @@ module ActiveDurable
     # The point of no return. Before it, failures are compensated; after it, steps are retried.
     def pivot(name, **options, &block)
       run_step(name, "pivot", nil, options, block)
+    end
+
+    # Runs a block once the saga ends that way: flow.on(:completed) { ... } or flow.on(:compensated) { ... }, to
+    # update your own records (the order is paid, the order is cancelled). Declare hooks before the first step, so
+    # a saga undone at its first step still knows them. The block runs in a transaction together with the notebook
+    # entry that records it: a hook that only touches your database runs exactly once, even across crashes.
+    def on(event, &block)
+      raise InvalidRecipe, "flow.on needs a block" unless block
+      unless HOOK_EVENTS.include?(event)
+        raise InvalidRecipe, "flow.on(:#{event}): the events are :completed and :compensated"
+      end
+      if @position.positive?
+        raise InvalidRecipe, "flow.on(:#{event}) must come before the first step: when a saga is undone early, " \
+                             "the steps after the failure are never reached"
+      end
+      raise InvalidRecipe, "flow.on(:#{event}) is declared twice" if @hooks.key?(event)
+
+      @hooks[event] = block
+      nil
+    end
+
+    def hook(event)
+      @hooks[event]
     end
 
     # Rejects the saga for a business reason: no retries, straight to compensation.
@@ -243,6 +268,7 @@ module ActiveDurable
       name = name.to_s
       raise InvalidRecipe, "step names cannot be blank" if name.empty?
       raise InvalidRecipe, "step names cannot end in ':undo' (#{name})" if name.end_with?(":undo")
+      raise InvalidRecipe, "step names cannot start with '~' (#{name}): it marks hooks" if name.start_with?("~")
       if @seen.key?(name)
         raise DuplicateStepName, "the recipe uses the step name :#{name} twice. Each step needs its own name: " \
                                  "it is the step's key in the notebook."

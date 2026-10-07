@@ -41,6 +41,23 @@ RSpec.describe "The dashboard in an API-only app" do
     expect(last_response.body).not_to include("Undo everything") # past the point of no return
   end
 
+  it "lists hooks in the notebook without drawing them as steps" do
+    Durable.define(:paid) do |flow|
+      flow.on(:completed) { true }
+      flow.step(:charge) { { "id" => "pi_1" } }
+    end
+    drain(Durable.start(:paid, id: "paid-1").id)
+
+    get "/durable/executions/paid-1"
+    expect(last_response).to be_ok
+    expect(last_response.body).to include("on :completed")
+    expect(last_response.body).not_to include("~completed")
+
+    get "/durable"
+    expect(last_response).to be_ok
+    expect(last_response.body).not_to include("~completed")
+  end
+
   it "retries a blocked execution through a CSRF-protected form, even without the app's session" do
     drain(Durable.start(:ship, id: "ship-1").id)
     get "/durable/executions/ship-1"

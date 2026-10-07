@@ -74,6 +74,7 @@ module ActiveDurable
 
     def complete!(output)
       output = Serializer.normalize(output, "the recipe's return value")
+      run_hook(:completed)
       lease.release!(status: "completed", output: output, wake_at: nil)
       ActiveDurable.instrument("completed", execution_id: execution.id, recipe: execution.recipe)
       :completed
@@ -105,11 +106,33 @@ module ActiveDurable
       ActiveDurable.instrument("compensation", execution_id: execution.id) do
         @flow.undo_stack.reverse_each { |entry| undo!(entry) }
       end
+      run_hook(:compensated)
       lease.release!(status: "compensated", wake_at: nil)
       ActiveDurable.instrument("compensated", execution_id: execution.id, recipe: execution.recipe)
       :compensated
-    rescue UndoFailed => e
+    rescue UndoFailed, HookFailed => e
       block!(e)
+    end
+
+    # Runs a flow.on hook once: its notebook entry is written in the same transaction as the hook's own changes.
+    def run_hook(event)
+      hook = @flow.hook(event)
+      name = "~#{event}"
+      return if hook.nil? || notebook[name]&.completed?
+
+      ActiveDurable.crash_point(:before_hook, name)
+      ActiveDurable.instrument("hook", execution_id: execution.id, step: name, kind: "hook") do
+        notebook.transaction do
+          hook.call
+          ActiveDurable.crash_point(:after_hook_call, name)
+          notebook.complete!(name, kind: "hook", position: nil, result: nil)
+        end
+      end
+      ActiveDurable.crash_point(:after_hook_record, name)
+    rescue StandardError => e
+      raise if e.is_a?(HookFailed)
+
+      raise HookFailed.new(event, e)
     end
 
     def undo!(entry)

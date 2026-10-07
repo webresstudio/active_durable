@@ -4,7 +4,7 @@ require "opentelemetry"
 require "active_durable"
 
 module ActiveDurable
-  # Traces executions, steps, compensations and undos as OpenTelemetry spans.
+  # Traces executions, steps, compensations, undos and hooks as OpenTelemetry spans.
   #
   #   # config/initializers/active_durable.rb
   #   require "active_durable/open_telemetry"
@@ -13,7 +13,7 @@ module ActiveDurable
   # Spans nest: a worker run ("active_durable.execution checkout") contains its steps, and flow.parallel
   # branches stay under it even though they run in other threads. Failed steps record the exception.
   module OpenTelemetry
-    EVENTS = %w[execution step compensation undo].freeze
+    EVENTS = %w[execution step compensation undo hook].freeze
 
     class << self
       def install!(tracer_provider: ::OpenTelemetry.tracer_provider)

@@ -87,7 +87,7 @@ module ActiveDurable
     # their parallel step, undone steps are marked, and an active execution gets a "next" ghost block.
     def track_items(execution, steps)
       undone = steps.select { |step| step.undo? && step.completed? }.to_set { |step| step.name.delete_suffix(":undo") }
-      branches, main = steps.reject(&:undo?).partition { |step| step.position.nil? }
+      branches, main = steps.select(&:forward?).partition { |step| step.position.nil? }
 
       items = main.sort_by(&:position).map do |step|
         build_item(step, undone, branches.select { |branch| branch.name.start_with?("#{step.name}/") })

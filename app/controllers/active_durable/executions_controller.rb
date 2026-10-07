@@ -23,8 +23,9 @@ module ActiveDurable
       @execution = Execution.find(params[:id])
       steps = @execution.steps.to_a
       @steps = steps
-      @forward_steps = steps.reject(&:undo?).sort_by { |step| step.position.to_i }
+      @forward_steps = steps.select(&:forward?).sort_by { |step| step.position.to_i }
       @undo_steps = steps.select(&:undo?)
+      @hook_steps = steps.select(&:hook?)
       @signals = @execution.signals.to_a
       @reruns = Execution.where(forked_from: @execution.id).order(:created_at).to_a
     end

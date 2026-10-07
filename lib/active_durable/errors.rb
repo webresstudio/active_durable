@@ -39,6 +39,17 @@ module ActiveDurable
   # An undo kept failing after all its attempts. The execution is blocked for a human to review.
   class UndoFailed < Error; end
 
+  # A flow.on(:completed) or flow.on(:compensated) hook raised. The execution is blocked; ActiveDurable.retry runs
+  # the hook again once it is fixed.
+  class HookFailed < Error
+    attr_reader :step_name
+
+    def initialize(event, error)
+      @step_name = "~#{event}"
+      super("flow.on(:#{event}) failed: #{error.class}: #{error.message}")
+    end
+  end
+
   # A step whose code cannot run as written: it raised NameError or NoMethodError (a typo, a missing class or
   # method). Retrying cannot fix it and undoing the saga would punish customers for a bug, so the execution is
   # blocked until the code is fixed and someone calls ActiveDurable.retry.

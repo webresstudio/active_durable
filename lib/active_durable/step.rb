@@ -30,5 +30,15 @@ module ActiveDurable
     def undo?
       kind == "undo"
     end
+
+    # Written once a flow.on(:completed) or flow.on(:compensated) hook ran.
+    def hook?
+      kind == "hook"
+    end
+
+    # A step of the recipe or a parallel branch: neither an undo nor a hook.
+    def forward?
+      !undo? && !hook?
+    end
   end
 end

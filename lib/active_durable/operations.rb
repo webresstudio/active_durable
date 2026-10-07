@@ -50,7 +50,7 @@ module ActiveDurable
       Record.transaction do
         original = Execution.lock.find(execution_id)
         check_rerunnable!(original)
-        start = original.steps.where.not(kind: "undo").find_by(name: from)
+        start = original.steps.where.not(kind: %w[undo hook]).find_by(name: from)
         raise Error, "#{original.id} has no step :#{from} in its notebook" unless start
 
         execution = Execution.create!(id: rerun_id(original), recipe: original.recipe,
@@ -101,7 +101,8 @@ module ActiveDurable
 
     def copy_steps(original, execution, before:)
       now = ActiveDurable.now
-      rows = original.steps.where.not(kind: "undo").where(status: "completed").where(position: ...before).map do |step|
+      rows = original.steps.where.not(kind: %w[undo hook]).where(status: "completed").where(position: ...before)
+                     .map do |step|
         { execution_id: execution.id, name: step.name, kind: step.kind, position: step.position,
           status: "completed", attempts: step.attempts, result: step.result, created_at: now, updated_at: now }
       end

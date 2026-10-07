@@ -63,6 +63,7 @@ Escribe la receta una vez, en `app/sagas/`:
 # app/sagas/checkout_saga.rb
 CheckoutSaga = Durable.define(:checkout) do |flow, order_id:|
   order = Order.find(order_id)
+  flow.on(:compensated) { order.update!(status: "cancelled") } # cuando todo lo terminado ya se deshizo
 
   # Solo toca tu base de datos: se confirma junto con su anotación, así que ocurre exactamente una vez.
   flow.transaction :reserve_stock, undo: -> { order.release_stock! } do
@@ -81,6 +82,7 @@ CheckoutSaga = Durable.define(:checkout) do |flow, order_id:|
   flow.pivot :dispatch do |ticket|
     { "tracking" => Carrier.ship(order.id, reference: ticket).tracking_number, "payment" => payment["id"] }
   end
+  flow.transaction(:mark_shipped) { order.update!(status: "shipped") } # tu propio estado, para tus páginas
 
   flow.step(:confirmation_email) { OrderMailer.shipped(order.id).deliver_now && true }
   flow.sleep(:wait_for_delivery, 3.days) # ningún trabajador queda ocupado mientras duerme
@@ -256,15 +258,16 @@ class Order < ApplicationRecord
 end
 ```
 
-El `id:` une la saga a su pedido, así que la página del pedido puede mostrar en qué va la saga:
+El `id:` une la saga a su pedido: `order.checkout` es para tu equipo y el dashboard. La página muestra el estado propio
+del pedido, que la saga escribe al avanzar (`mark_shipped`, `flow.on(:compensated)`), no el de la saga: un pedido ya
+enviado todavía tiene una saga durmiendo tres días antes de pedir la reseña.
 
 ```erb
 <%# app/views/orders/show.html.erb %>
-<% case @order.checkout.status %>
-<% when "completed" %>   Tu pedido está confirmado.
-<% when "compensated" %> No pudimos completarlo y te devolvimos el dinero.
-<% when "blocked" %>     Lo estamos revisando.
-<% else %>               Procesando…
+<% case @order.status %>
+<% when "shipped" %>   Tu pedido va en camino.
+<% when "cancelled" %> No pudimos completarlo y te devolvimos el dinero.
+<% else %>             Procesando…
 <% end %>
 ```
 
@@ -389,6 +392,7 @@ De releer la receta salen tres reglas:
 | `flow.parallel(name) { \|branches\| ... }` | varios pasos al mismo tiempo | cada rama como un paso |
 | `flow.sleep(name, 3.days)` | esperar sin ocupar a un trabajador | — |
 | `flow.wait_for(name, timeout:)` | esperar un `Durable.signal` | si se agota el tiempo, la saga falla |
+| `flow.on(:completed) { ... }` | actualizar tus propios registros cuando la saga termina (también `:compensated`) | se bloquea; un reintento vuelve a correr el hook |
 
 Los pasos aceptan `undo:`, `retry:` (`3`, `false` o `{ attempts:, backoff: }`) y `undo_on_failure:`.
 
@@ -443,6 +447,34 @@ Un paquete despachado o una transferencia bancaria no se pueden deshacer. Marca 
 él, un fallo deshace todo. Después de él, los pasos no pueden declarar `undo:` y se reintentan con espera creciente
 (`config.after_pivot_attempts`, 25 por defecto); si aun así fallan, la ejecución queda **bloqueada** para que la
 revise una persona.
+
+</details>
+
+<details>
+<summary><b>Cuando una saga termina: hooks</b></summary>
+
+<br>
+
+`flow.on(:completed)` y `flow.on(:compensated)` corren una vez que la saga termina así, para actualizar tus propios
+registros:
+
+```ruby
+CheckoutSaga = Durable.define(:checkout) do |flow, order_id:|
+  order = Order.find(order_id)
+  flow.on(:completed) { order.update!(status: "delivered") }
+  flow.on(:compensated) { order.update!(status: "cancelled") }
+
+  flow.transaction(:reserve_stock, undo: -> { order.release_stock! }) { ... }
+end
+```
+
+Decláralos antes del primer paso: una saga que se deshace en su primer paso nunca llega a las líneas de después.
+`completed` corre después del último paso y `compensated` después del último deshacer, cada uno en una transacción
+junto con la anotación que lo registra, así que un hook que solo toca tu base de datos ocurre exactamente una vez,
+aunque el proceso muera. Si un hook lanza un error, la ejecución se bloquea, y `ActiveDurable.retry` vuelve a correr
+el hook, no los pasos.
+
+Para el avance antes del final (pagado, enviado), escribe un paso: `flow.transaction(:mark_shipped) { ... }`.
 
 </details>
 
@@ -593,7 +625,7 @@ end
 
 | Evento | Payload |
 | --- | --- |
-| `execution` / `step` / `compensation` / `undo` | `execution_id` (y `recipe`, `step`, `kind`) |
+| `execution` / `step` / `compensation` / `undo` / `hook` | `execution_id` (y `recipe`, `step`, `kind`) |
 | `completed` / `compensated` | `execution_id`, `recipe` |
 | `blocked` | `execution_id`, `recipe`, `error` |
 | `retried` / `compensation_requested` / `rerun` | acciones de un operador |

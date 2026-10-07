@@ -35,9 +35,9 @@ module ActiveDurable
       TERMINAL.include?(status)
     end
 
-    # The forward steps in recipe order (undo entries excluded).
+    # The forward steps in recipe order (undo and hook entries excluded).
     def notebook
-      steps.where.not(kind: "undo").reorder(:position).to_a
+      steps.where.not(kind: %w[undo hook]).reorder(:position).to_a
     end
   end
 end

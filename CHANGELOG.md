@@ -7,6 +7,14 @@ regenerate the migration when upgrading.
 
 ## [Unreleased]
 
+### Added
+
+- `flow.on(:completed) { ... }` and `flow.on(:compensated) { ... }`: hooks to update your own records when a saga
+  ends. Declared before the first step, so a saga undone early still knows them. Each runs once, in a transaction
+  with the notebook entry that records it (exactly once for database changes, covered by the crash tester); a failing
+  hook blocks the execution and `ActiveDurable.retry` runs only the hook. The dashboard lists them in the notebook,
+  and OpenTelemetry traces them.
+
 ### Changed
 
 - **A bug no longer undoes a saga.** Only a step that fails for good, or `flow.abort!`, undoes the finished steps.
@@ -38,7 +46,9 @@ regenerate the migration when upgrading.
 - Dashboard: the execution id no longer widens its column (long ids wrap), and long problems take two lines, with the
   full message on hover.
 - README: `Payments` turns Stripe's errors into its own, so the recipe does not depend on Stripe; development with
-  `:async` is explained (sagas started from the console are lost until the sweeper runs); a Minitest example.
+  `:async` is explained (sagas started from the console are lost until the sweeper runs); a Minitest example. The
+  order page shows the order's own status, written by the saga (`mark_shipped`, `flow.on(:compensated)`), instead of
+  the saga's status, which said "Processing…" for days after the parcel left.
 
 ## [0.5.0] - 2026-10-06
 
