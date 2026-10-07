@@ -163,12 +163,23 @@ config.solid_queue.connects_to = { database: { writing: :queue } }
   encoló. El servidor corre los suyos, con sleeps y reintentos incluidos, pero una saga arrancada desde la consola,
   `bin/rails runner`, una tarea rake o `db/seeds.rb` se pierde cuando ese proceso termina, y las esperas programadas
   se pierden cuando el servidor se reinicia. Un minuto después, `bin/rails active_durable:sweep` las recoge: con
-  `:async` las corre ahí mismo. O usa Solid Queue también en desarrollo, con `bin/jobs` junto al servidor.
+  `:async` las corre ahí mismo. O usa Solid Queue también en desarrollo, para que los jobs vivan en la base de datos:
+  dale a `development` una base `queue` en `config/database.yml` (como la que tiene `production`, con
+  `migrations_paths: db/queue_migrate`), agrega las dos líneas de abajo, corre `bin/rails db:prepare` y arranca
+  `bin/jobs` junto al servidor.
+
+```ruby
+# config/environments/development.rb
+config.active_job.queue_adapter = :solid_queue
+config.solid_queue.connects_to = { database: { writing: :queue } }
+```
 
 ### 3. El barrendero
 
 La red de seguridad: cada minuto encola las ejecuciones que perdieron su job, porque el proceso murió entre el
-COMMIT y el encolado o un worker murió con el lease tomado. Con Solid Queue:
+COMMIT y el encolado o un worker murió con el lease tomado. Con Solid Queue, agrega estas entradas dentro de la clave
+`production:` que Rails ya escribió en `config/recurring.yml` (una segunda clave `production:` la reemplazaría sin
+avisar), y también bajo una clave `development:` si usas Solid Queue en desarrollo:
 
 ```yaml
 # config/recurring.yml
@@ -688,6 +699,30 @@ de ActiveDurable:
 | ruby_reactor | Redis | sí | Redis y Sidekiq |
 | Temporal | el servidor de Temporal | programado a mano | un clúster de Temporal |
 | **ActiveDurable** | **tu base de datos** | **sí, en reversa y con punto de no retorno** | **nada extra** |
+
+## Rendimiento
+
+Medido en un Apple M1 Ultra con Ruby 4.0.7 y Rails 8.1, cada base de datos en la misma máquina. Los scripts están en
+[`benchmarks/`](benchmarks/README.md), así que puedes correrlos en la tuya.
+
+| | PostgreSQL 16 | MySQL 9.6 | SQLite 3 |
+| --- | --- | --- | --- |
+| Un paso (`flow.step`), un proceso | 1.8 ms | 3.0 ms | 0.45 ms |
+| Un paso (`flow.transaction`), un proceso | 2.0 ms | 2.8 ms | 0.45 ms |
+| Reanudar una saga con 1,000 pasos terminados | 17 ms | 21 ms | 9 ms |
+| 2,000 sagas de 5 pasos, 8 procesos worker | 6.9 s (290 sagas/s) | 8.1 s (246 sagas/s) | 1,000 sagas, 4 workers: 6.5 s |
+| Lo mismo, matando un worker con SIGKILL cada segundo | 9.2 s, 9 workers matados | 13.2 s, 13 matados | — |
+| Cobros duplicados | 0 | 0 | 0 |
+
+Un paso cuesta unas cuatro consultas: la verificación del lease que protege la escritura, la fila del cuaderno y el
+COMMIT que la vuelve durable. En las pruebas de carga cada llamada al mundo de fuera tarda 5 ms, así que una saga pasa
+la mayor parte del tiempo esperando, como en una app real. Cuando un worker muere a mitad de un paso, otro corre ese
+paso otra vez con el mismo ticket: en PostgreSQL, 2 de los 2,000 cobros se enviaron dos veces, y la llave de
+idempotencia los volvió uno.
+
+La misma prueba en una app Rails 8 con Solid Queue: 300 compras, todos los procesos de Solid Queue matados con
+SIGKILL dos veces mientras había sagas a medias. Todas terminaron, los reembolsos y los hooks corrieron una vez, y a
+ningún pedido se le cobró dos veces.
 
 ## Garantías y límites
 

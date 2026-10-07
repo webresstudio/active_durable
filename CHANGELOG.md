@@ -7,6 +7,18 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Benchmarks in `benchmarks/`: the cost of a step and of resuming a long saga (`throughput.rb`), and many worker
+  processes on the same sagas, optionally killing one with SIGKILL every second (`load.rb`, `CHAOS=1`). The README
+  has a "Performance" section with the results on PostgreSQL, MySQL and SQLite.
+
+### Fixed
+
+- README: how to run Solid Queue in development, and the sweeper and cleanup entries go under the `production:` key
+  Rails already wrote in `config/recurring.yml`. Pasting a second `production:` key silently dropped Rails' own
+  `clear_solid_queue_finished_jobs` task.
+
 ## [0.6.0] - 2026-10-06
 
 Usable in a real app: found by a first-time user's walkthrough, plus hooks, cleanup, upgrades and an API reference.

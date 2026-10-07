@@ -161,12 +161,22 @@ config.solid_queue.connects_to = { database: { writing: :queue } }
   The server runs its own, sleeps and retries included, but a saga started from the console, `bin/rails runner`, a
   rake task or `db/seeds.rb` is lost when that process exits, and scheduled wake-ups are lost when the server
   restarts. A minute later, `bin/rails active_durable:sweep` picks them up: with `:async` it runs them right there.
-  Or run Solid Queue in development too, with `bin/jobs` next to the server.
+  Or run Solid Queue in development too, so jobs live in the database: give `development` a `queue` database in
+  `config/database.yml` (like the one `production` has, with `migrations_paths: db/queue_migrate`), add the two
+  lines below, run `bin/rails db:prepare`, and start `bin/jobs` next to the server.
+
+```ruby
+# config/environments/development.rb
+config.active_job.queue_adapter = :solid_queue
+config.solid_queue.connects_to = { database: { writing: :queue } }
+```
 
 ### 3. The sweeper
 
 The safety net: every minute it enqueues executions that lost their job, because the process died between the
-commit and the enqueue or a worker died holding a lease. With Solid Queue:
+commit and the enqueue or a worker died holding a lease. With Solid Queue, add these entries under the
+`production:` key Rails already wrote in `config/recurring.yml` (a second `production:` key would silently replace
+it), and under a `development:` key too if you run Solid Queue in development:
 
 ```yaml
 # config/recurring.yml
@@ -678,6 +688,28 @@ Every feature works on every version. Things your app may need on older Rails, u
 | ruby_reactor | Redis | yes | Redis and Sidekiq |
 | Temporal | the Temporal server | written by hand | a Temporal cluster |
 | **ActiveDurable** | **your database** | **yes, in reverse, with a point of no return** | **nothing extra** |
+
+## Performance
+
+Measured on an Apple M1 Ultra with Ruby 4.0.7 and Rails 8.1, each database on the same machine. The scripts are in
+[`benchmarks/`](benchmarks/README.md), so you can run them on yours.
+
+| | PostgreSQL 16 | MySQL 9.6 | SQLite 3 |
+| --- | --- | --- | --- |
+| A step (`flow.step`), one process | 1.8 ms | 3.0 ms | 0.45 ms |
+| A step (`flow.transaction`), one process | 2.0 ms | 2.8 ms | 0.45 ms |
+| Resuming a saga with 1,000 finished steps | 17 ms | 21 ms | 9 ms |
+| 2,000 sagas of 5 steps, 8 worker processes | 6.9 s (290 sagas/s) | 8.1 s (246 sagas/s) | 1,000 sagas, 4 workers: 6.5 s |
+| The same, killing a worker with SIGKILL every second | 9.2 s, 9 workers killed | 13.2 s, 13 killed | — |
+| Duplicate charges | 0 | 0 | 0 |
+
+A step costs about four queries: the lease check that fences the write, the notebook row and the commit that makes
+it durable. In the load tests each call to the outside world takes 5 ms, so a saga spends most of its time waiting,
+as in a real app. When a worker dies mid-step, another one runs that step again with the same ticket: on PostgreSQL 2
+of the 2,000 charges were sent twice, and the idempotency key made them one.
+
+The same test in a Rails 8 app with Solid Queue: 300 checkouts, every Solid Queue process killed with SIGKILL twice
+while sagas were halfway through. All of them settled, the refunds and hooks ran once, and no order was charged twice.
 
 ## Guarantees and limits
 
