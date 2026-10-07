@@ -36,7 +36,11 @@ module ActiveDurable
         prepare_branches!(name, branches)
         entry = @notebook[name]
         return finish_recorded_parallel(name, entry, branches) if entry&.completed? || entry&.failed?
-        raise StopForward, name if compensating?
+
+        if compensating? # stopped halfway: undo the branches that finished
+          remember_branches(name, branches, include_failed: true)
+          raise StopForward, name
+        end
 
         run_parallel(name, position, branches)
       end
@@ -221,7 +225,7 @@ module ActiveDurable
 
           if entry.completed?
             @undo_stack << UndoEntry.new(entry.name, branch.kind, entry.result, branch.undo)
-          elsif include_failed && branch.options[:undo_on_failure] && (entry.failed? || entry.retrying?)
+          elsif include_failed && branch.options[:undo_on_failure] && (entry.failed? || entry.unfinished?)
             @undo_stack << UndoEntry.new(entry.name, branch.kind, nil, branch.undo)
           end
         end

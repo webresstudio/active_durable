@@ -275,7 +275,11 @@ module ActiveDurable
         remember_failure(name, kind, undo, options)
         raise StepFailed.new(name, entry.error&.fetch("message", nil))
       end
-      raise StopForward, name if compensating?
+      if compensating?
+        # Stopped between attempts or on a bug: it may have acted, so undo_on_failure applies.
+        remember_failure(name, kind, undo, options) if entry&.unfinished?
+        raise StopForward, name
+      end
 
       @runner.suspend!(entry.wake_at, "sleeping") if entry&.retrying? && entry.wake_at && entry.wake_at > now
 

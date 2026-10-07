@@ -28,6 +28,11 @@ module ActiveDurable
       status == "blocked"
     end
 
+    # It ran without recording a result: between attempts, or stopped by a bug. Its effect may have happened.
+    def unfinished?
+      retrying? || blocked?
+    end
+
     def waiting?
       status == "waiting"
     end

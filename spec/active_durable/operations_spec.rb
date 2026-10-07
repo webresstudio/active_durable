@@ -120,7 +120,83 @@ RSpec.describe ActiveDurable::Operations do
       id = Durable.start(:busy).id
       ActiveDurable::Lease.claim(id)
 
-      expect { Durable.compensate(id) }.to raise_error(ActiveDurable::Error, /running right now/)
+      expect { Durable.compensate(id) }.to raise_error(ActiveDurable::Error, /is running/)
+    end
+
+    it "refuses a running execution even once its lease ran out: its worker may still be inside a step" do
+      effects = []
+      undone = []
+      refused = nil
+      Durable.define(:slow) do |flow|
+        flow.step(:charge, undo: -> { undone << :charge }) { effects << :charge }
+        flow.pivot(:ship) do
+          ActiveDurable::Testing.travel(ActiveDurable.config.lease_duration + 1) # the carrier API is slow
+          refused = begin
+            Durable.compensate("slow-1", reason: "operator")
+            nil
+          rescue ActiveDurable::Error => e
+            e
+          end
+          effects << :shipped
+        end
+      end
+      ActiveDurable.enqueue_disabled = true
+      ActiveDurable::Runner.run(Durable.start(:slow, id: "slow-1").id)
+
+      expect(refused&.message).to match(/is running/)
+      expect(effects).to eq(%i[charge shipped])
+      expect(undone).to be_empty
+    end
+
+    it "undoes a step with an unknown outcome that was waiting for its next attempt" do
+      refunds = []
+      Durable.define(:timeout) do |flow|
+        flow.step(:reserve, undo: -> { refunds << :reserve }) { true }
+        flow.step(:charge, undo: ->(charge, ticket) { refunds << [:charge, charge, ticket] }, undo_on_failure: true) do
+          raise Timeout::Error, "stripe did not answer" # the charge may have gone through
+        end
+      end
+      id = Durable.start(:timeout, id: "to-1").id
+      ActiveDurable::Runner.run(id)
+      expect(notebook(id)["charge"].status).to eq("retrying")
+
+      Durable.compensate(id, reason: "customer cancelled")
+
+      expect(drain(id).status).to eq("compensated")
+      expect(refunds).to eq([[:charge, nil, "to-1:charge:undo"], :reserve])
+    end
+
+    it "undoes a step with an unknown outcome that blocked on a bug" do
+      refunds = []
+      Durable.define(:bug) do |flow|
+        flow.step(:charge, undo: ->(charge, ticket) { refunds << [charge, ticket] }, undo_on_failure: true) do
+          { "id" => "pi_1" }.fetch(:id) # charged, then broke reading the response
+        end
+      end
+      id = drain(Durable.start(:bug, id: "bug-1").id).id
+
+      Durable.compensate(id)
+
+      expect(drain(id).status).to eq("compensated")
+      expect(refunds).to eq([[nil, "bug-1:charge:undo"]])
+    end
+
+    it "undoes the finished branches of a flow.parallel it stopped halfway" do
+      released = []
+      Durable.define(:par) do |flow|
+        flow.parallel(:reserve) do |branches|
+          branches.step("MEX", undo: -> { released << "MEX" }) { true }
+          branches.step("GDL", undo: -> { released << "GDL" }, undo_on_failure: true) { raise IOError, "GDL down" }
+          branches.step("QRO", undo: -> { released << "QRO" }) { raise IOError, "QRO down" }
+        end
+      end
+      id = Durable.start(:par).id
+      ActiveDurable::Runner.run(id) # MEX done, GDL and QRO wait for their next attempt
+
+      Durable.compensate(id)
+
+      expect(drain(id).status).to eq("compensated")
+      expect(released).to contain_exactly("MEX", "GDL")
     end
   end
 

@@ -28,9 +28,11 @@ module ActiveDurable
       execution
     end
 
-    # Undoes every completed step, last one first. Not possible once the point of no return was passed.
+    # Undoes every completed step, last one first. Not possible once the point of no return was passed, nor while
+    # the execution is running: the lease is only renewed on notebook writes, so a worker may still be inside a
+    # slow step after its lease ran out (the sweeper resumes it if the worker died).
     def compensate(execution_id, reason: "compensated by an operator")
-      execution = with_idle_execution(execution_id, allowed: %w[blocked pending running sleeping waiting]) do |record|
+      execution = with_idle_execution(execution_id, allowed: %w[blocked pending sleeping waiting]) do |record|
         raise Error, "#{record.id} is already compensating; use ActiveDurable.retry to resume it" if record.compensating
         if record.steps.exists?(kind: "pivot", status: "completed")
           raise Error, "#{record.id} already passed its point of no return; it can only move forward"

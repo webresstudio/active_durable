@@ -75,7 +75,7 @@ module ActiveDurable
     end
 
     def can_compensate?(execution, steps)
-      %w[blocked pending running sleeping waiting].include?(execution.status) && !execution.compensating &&
+      %w[blocked pending sleeping waiting].include?(execution.status) && !execution.compensating &&
         steps.none? { |step| step.kind == "pivot" && step.completed? }
     end
 
