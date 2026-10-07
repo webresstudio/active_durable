@@ -262,7 +262,7 @@ class OrdersController < ApplicationController
   end
 end
 
-# app/models/order.rb
+# app/models/order.rb: orders tiene una columna status ("placed" por defecto) que la saga actualiza
 class Order < ApplicationRecord
   def checkout
     Durable.find("checkout-#{id}")
@@ -302,6 +302,7 @@ tomado y termina.
 | dejar de reintentar un fallo de negocio | `flow.abort!`, como la tarjeta rechazada de arriba |
 | ver qué está corriendo | el [dashboard](#dashboard), o `ActiveDurable::RunJob` en el panel de tu backend |
 | enterarte de una saga atascada | el [evento](#observabilidad) `blocked.active_durable` |
+| borrar las sagas terminadas | programar `ActiveDurable::PruneJob` una vez al día (paso 3) |
 | correr una saga en línea en las pruebas | `ActiveDurable::Testing.drain(id)` |
 | arrancar o despertar sagas desde tus propios jobs | llama ahí a `Durable.start` o `Durable.signal` |
 
@@ -382,8 +383,8 @@ stateDiagram-v2
   sleeping --> running: hora de despertar
   waiting --> running: Durable.signal
   running --> completed: todos los pasos hechos
-  running --> compensated: fallo antes del pivote, se deshizo todo
-  running --> blocked: necesita a una persona
+  running --> compensated: un paso falló del todo, o flow.abort!, antes del pivote
+  running --> blocked: un bug, un fallo después del pivote o un hook que falla
   blocked --> pending: ActiveDurable.retry
 ```
 
@@ -694,6 +695,9 @@ de ActiveDurable:
   corre exactamente una vez, porque su cambio y su anotación se confirman juntos.
 - Un solo trabajador a la vez por ejecución: tomar una ejecución y cada escritura están protegidos por un token de
   lease.
+- Un hook (`flow.on`) corre una vez; exactamente una vez si solo toca tu base de datos.
+- Un bug nunca deshace una saga: un error en el código la bloquea hasta que lo arreglas y llamas a
+  `ActiveDurable.retry`.
 - Las sagas no se aíslan entre sí: dos sagas pueden ver los estados intermedios de la otra.
 - `flow.transaction` es atómico solo si el cuaderno vive en la misma base de datos que tus datos.
 

@@ -260,7 +260,7 @@ class OrdersController < ApplicationController
   end
 end
 
-# app/models/order.rb
+# app/models/order.rb: orders has a status column ("placed" by default) that the saga updates
 class Order < ApplicationRecord
   def checkout
     Durable.find("checkout-#{id}")
@@ -299,6 +299,7 @@ the notebook, not to the job: if your backend retries the job too, the copy find
 | stop retrying a business failure | `flow.abort!`, like the declined card above |
 | see what is running | the [dashboard](#dashboard), or `ActiveDurable::RunJob` in your backend's UI |
 | hear about a stuck saga | the `blocked.active_durable` [event](#observability) |
+| delete finished sagas | schedule `ActiveDurable::PruneJob` once a day (step 3) |
 | run a saga inline in tests | `ActiveDurable::Testing.drain(id)` |
 | start or wake sagas from your own jobs | call `Durable.start` or `Durable.signal` there |
 
@@ -379,8 +380,8 @@ stateDiagram-v2
   sleeping --> running: wake-up time
   waiting --> running: Durable.signal
   running --> completed: every step done
-  running --> compensated: failure before the pivot, undos ran
-  running --> blocked: needs a person
+  running --> compensated: a step failed for good, or flow.abort!, before the pivot
+  running --> blocked: a bug, a failure after the pivot or a failing hook
   blocked --> pending: ActiveDurable.retry
 ```
 
@@ -683,6 +684,8 @@ Every feature works on every version. Things your app may need on older Rails, u
 - A step runs **at least once**; with an idempotency key it has its effect once. `flow.transaction` runs exactly
   once, because its change and its checkpoint commit together.
 - One worker at a time per execution: taking an execution and every write are fenced by a lease token.
+- A hook (`flow.on`) runs once; exactly once if it only touches your database.
+- A bug never undoes a saga: an error in the code blocks it until you fix it and call `ActiveDurable.retry`.
 - Sagas do not isolate each other: two sagas can see each other's intermediate states.
 - `flow.transaction` is atomic only when the notebook lives in the same database as your data.
 

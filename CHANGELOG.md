@@ -43,7 +43,8 @@ rejections.
 - A website, in English and Spanish, with an interactive simulator of a checkout: pick what goes wrong (a crash, a
   refused parcel, a declined card…) and watch the steps, the notebook and the outside world. Source in `site/`, built
   by `bin/site` and published to GitHub Pages by `.github/workflows/pages.yml`. The gem's homepage and both READMEs
-  link to it.
+  link to it. Its simulator also shows a bug in a deploy (the saga is blocked, nothing is undone, a retry carries it
+  on) and the order's own status, set by `flow.on(:compensated)`.
 - README: the quick start recipe reads top to bottom, with one-line undos and the Stripe calls in a `Payments`
   module where charging and refunding sit side by side. A new section, "In a Rails app", sets up a Rails app step by
   step: install, job backend, sweeper, the initializer with every setting, routes, where each piece of code goes
