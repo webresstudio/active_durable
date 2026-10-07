@@ -18,7 +18,11 @@ namespace :active_durable do
 
   desc "Enqueue executions that should be running but have no job (run it every minute)"
   task sweep: :environment do
-    ids = ActiveDurable::Sweeper.call
-    puts "ActiveDurable: enqueued #{ids.size} execution(s)"
+    ids, how = ActiveDurable::Sweeper.call_from_task
+    if how == :ran
+      puts "ActiveDurable: ran #{ids.size} execution(s) in this process (the :async adapter would lose their jobs)"
+    else
+      puts "ActiveDurable: enqueued #{ids.size} execution(s)"
+    end
   end
 end

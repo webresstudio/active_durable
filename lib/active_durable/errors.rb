@@ -39,6 +39,18 @@ module ActiveDurable
   # An undo kept failing after all its attempts. The execution is blocked for a human to review.
   class UndoFailed < Error; end
 
+  # A step whose code cannot run as written: it raised NameError or NoMethodError (a typo, a missing class or
+  # method). Retrying cannot fix it and undoing the saga would punish customers for a bug, so the execution is
+  # blocked until the code is fixed and someone calls ActiveDurable.retry.
+  class CodeError < Error
+    attr_reader :step_name
+
+    def initialize(step_name, error)
+      @step_name = step_name
+      super("step :#{step_name} cannot run: #{error.class}: #{error.message}")
+    end
+  end
+
   # Control flow signals. They inherit from Exception on purpose: a `rescue => e` inside
   # user code must not swallow them, otherwise a lost lease could keep writing.
   class ControlFlow < Exception; end # rubocop:disable Lint/InheritException

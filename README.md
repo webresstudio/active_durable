@@ -73,7 +73,7 @@ CheckoutSaga = Durable.define(:checkout) do |flow, order_id:|
   # Talks to the outside world: the ticket is an idempotency key that never changes for this step.
   payment = flow.step :charge, undo: ->(charge, ticket) { Payments.refund(charge, ticket) } do |ticket|
     Payments.charge(order, ticket)
-  rescue Stripe::CardError => e
+  rescue Payments::CardDeclined => e
     flow.abort!(e.message) # a declined card is not retried: the stock is released right away
   end
 
@@ -93,12 +93,16 @@ The calls to Stripe live in a plain module, doing and undoing side by side. The 
 ```ruby
 # app/services/payments.rb
 module Payments
+  class CardDeclined < StandardError; end
+
   def self.charge(order, ticket)
     intent = Stripe::PaymentIntent.create(
       { amount: order.total_cents, currency: "usd", customer: order.user.stripe_id, confirm: true },
       { idempotency_key: ticket }
     )
     { "id" => intent.id } # written in the notebook, so it must fit in JSON
+  rescue Stripe::CardError => e
+    raise CardDeclined, e.message # the recipe speaks your language, not Stripe's
   end
 
   def self.refund(charge, ticket)
@@ -147,8 +151,11 @@ config.solid_queue.connects_to = { database: { writing: :queue } }
 
 - **Workers must listen to the saga queue.** It is `:default` unless you change `config.queue_name`; if you do, add
   it to your workers (Solid Queue's `config/queue.yml`, Sidekiq's `-q`).
-- **In development** Rails' default `:async` adapter runs jobs inside the server, sleeps and retries included. With
-  Solid Queue, run `bin/jobs` next to the server.
+- **In development** Rails' default `:async` adapter keeps each job in the memory of the process that enqueued it.
+  The server runs its own, sleeps and retries included, but a saga started from the console, `bin/rails runner`, a
+  rake task or `db/seeds.rb` is lost when that process exits, and scheduled wake-ups are lost when the server
+  restarts. A minute later, `bin/rails active_durable:sweep` picks them up: with `:async` it runs them right there.
+  Or run Solid Queue in development too, with `bin/jobs` next to the server.
 
 ### 3. The sweeper
 
@@ -303,6 +310,26 @@ it "charges once and confirms the order" do
 end
 ```
 
+With Minitest, the Rails default:
+
+```ruby
+# test/test_helper.rb
+require "active_durable/testing"
+
+class ActiveSupport::TestCase
+  setup { ActiveDurable::Testing.reset! }
+end
+
+# test/services/place_order_test.rb
+class PlaceOrderTest < ActiveSupport::TestCase
+  test "charges once and confirms the order" do
+    order = PlaceOrder.call(email: "ana@example.com", total_cents: 4200)
+
+    assert_equal "completed", ActiveDurable::Testing.drain(order.checkout.id).status
+  end
+end
+```
+
 `drain` runs the saga right there, without a worker. Stub Stripe as you already do, then let the
 [crash tester](#testing-the-crash-tester) kill the saga at every point.
 
@@ -379,10 +406,14 @@ idempotency key, Stripe answers with the first result instead of charging twice.
 
 <br>
 
-When a step runs out of attempts, raises `ActiveDurable::Abort`, or the recipe raises, every finished step is undone,
-last one first. Each undo is written in the notebook too, so a crash in the middle of undoing resumes where it
+When a step runs out of attempts or calls `flow.abort!`, every finished step is undone, last one first. Each undo is written in the notebook too, so a crash in the middle of undoing resumes where it
 stopped. An undo receives `(result, undo_ticket, step_ticket)` and takes as many as it declares: `-> { ... }` takes
 none. Any object that responds to `call` works too, such as `Payments.method(:refund)`.
+
+**A bug is not a failure.** Anything else the recipe raises, and a `NameError` or `NoMethodError` inside a step,
+blocks the execution instead of undoing it: a typo in a deploy must never refund your customers. Fix the code and
+call `ActiveDurable.retry(id)`, or press Retry in the dashboard, and the saga carries on from where it stopped. To
+reject the work for a business reason outside a step, call `flow.abort!(reason)`.
 
 A step that failed is not undone, because it did not happen. The exception is a step whose failure may hide a
 success, like a charge whose answer timed out: declare `undo_on_failure: true` and its undo runs with `nil` as the

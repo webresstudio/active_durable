@@ -42,7 +42,7 @@
         <% @executions.each do |execution| %>
           <% items = track_items(execution, @steps_by_execution.fetch(execution.id, [])) %>
           <tr data-id="<%= execution.id %>" data-status="<%= execution.status %>">
-            <td>
+            <td class="exec">
               <%= link_to execution.id, execution_path(execution), class: "exec-link" %>
               <span class="recipe"><%= execution.recipe %>, version <%= execution.recipe_version %></span>
             </td>
@@ -69,7 +69,8 @@
               <% if compensating_now?(execution) %><%= status_pill("compensating") %><% end %>
             </td>
             <td class="when"><%= execution.wake_at ? when_text(execution.wake_at) : tag.span("—", class: "muted") %></td>
-            <td class="problem"><%= execution.error&.dig("message").to_s.truncate(110) %></td>
+            <% problem = execution.error&.dig("message").to_s %>
+            <td class="problem"><span title="<%= problem %>"><%= problem.truncate(110) %></span></td>
             <td class="when"><%= when_text(execution.updated_at) %></td>
           </tr>
         <% end %>

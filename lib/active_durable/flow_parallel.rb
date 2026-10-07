@@ -158,6 +158,8 @@ module ActiveDurable
         [:completed, result]
       rescue NotSerializable, InvalidRecipe
         raise
+      rescue NameError => e
+        raise CodeError.new(branch.full_name, e)
       rescue StandardError => e
         branch_failure(branch, entry, e)
       end

@@ -9,6 +9,11 @@ regenerate the migration when upgrading.
 
 ### Changed
 
+- **A bug no longer undoes a saga.** Only a step that fails for good, or `flow.abort!`, undoes the finished steps.
+  Any other error raised by the recipe, and a `NameError` or `NoMethodError` inside a step (now
+  `ActiveDurable::CodeError`, not retried), blocks the execution instead: a typo in a deploy used to refund every
+  saga that woke up with it. Fix the code and call `ActiveDurable.retry`. A business rejection raised as a plain
+  exception in the recipe body now blocks too: use `flow.abort!` (or raise `ActiveDurable::Abort`).
 - The repository moved to [webresstudio/active_durable](https://github.com/webresstudio/active_durable). Links to the
   old address redirect.
 - A website, in English and Spanish, with an interactive simulator of a checkout: pick what goes wrong (a crash, a
@@ -24,6 +29,16 @@ regenerate the migration when upgrading.
   skips the step's remaining retries.
 - gemspec: Active Job, Active Record and Active Support are required `>= 6.1, < 9`, the versions CI tests, instead
   of any version from 6.1 on. The duplicate homepage link is gone, so `gem build` no longer warns.
+
+### Fixed
+
+- The rake tasks were loaded twice (Rails already loads an engine's `lib/tasks`), so each one ran twice.
+- `bin/rails active_durable:sweep` with the `:async` adapter (the Rails default in development) enqueued jobs that died
+  with the rake process. It now runs the due executions itself.
+- Dashboard: the execution id no longer widens its column (long ids wrap), and long problems take two lines, with the
+  full message on hover.
+- README: `Payments` turns Stripe's errors into its own, so the recipe does not depend on Stripe; development with
+  `:async` is explained (sagas started from the console are lost until the sweeper runs); a Minitest example.
 
 ## [0.5.0] - 2026-10-06
 

@@ -181,6 +181,8 @@ module ActiveDurable
       result
     rescue NotSerializable, InvalidRecipe
       raise
+    rescue NameError => e # NoMethodError too: a bug in the code, not a failure of the outside world
+      raise CodeError.new(name, e)
     rescue StandardError => e
       handle_failure(name, kind, position, entry, undo, options, e)
     end

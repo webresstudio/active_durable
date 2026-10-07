@@ -113,10 +113,12 @@
     tbody tr { transition: background-color .2s; }
     tbody tr:hover { background: var(--sunken); }
     tr.changed { animation: rowflash 1.8s ease; }
-    .exec-link { font: 700 .95rem/1.2 var(--f-code); white-space: nowrap; text-decoration: none; color: var(--ink); }
+    td.exec { min-width: 20ch; max-width: 30ch; }
+    .exec-link { font: 700 .95rem/1.2 var(--f-code); overflow-wrap: anywhere; text-decoration: none; color: var(--ink); }
     .exec-link:hover { text-decoration: underline; }
     .recipe { display: block; color: var(--soft); font-size: .82rem; margin-top: 2px; }
-    .problem { color: var(--ruby); max-width: 34ch; }
+    .problem { color: var(--ruby); min-width: 24ch; max-width: 40ch; }
+    .problem span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
     .when { white-space: nowrap; font-variant-numeric: tabular-nums; }
     .status { display: inline-flex; align-items: center; gap: 7px; padding: 4px 10px 4px 8px; border-radius: 999px;
               background: var(--cb); color: var(--c); font-weight: 700; font-size: .82rem; white-space: nowrap; }

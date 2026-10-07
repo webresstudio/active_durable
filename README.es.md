@@ -73,7 +73,7 @@ CheckoutSaga = Durable.define(:checkout) do |flow, order_id:|
   # Habla con el mundo de fuera: el ticket es una llave de idempotencia que nunca cambia para este paso.
   payment = flow.step :charge, undo: ->(charge, ticket) { Payments.refund(charge, ticket) } do |ticket|
     Payments.charge(order, ticket)
-  rescue Stripe::CardError => e
+  rescue Payments::CardDeclined => e
     flow.abort!(e.message) # una tarjeta rechazada no se reintenta: el stock se libera en seguida
   end
 
@@ -94,12 +94,16 @@ ticket:
 ```ruby
 # app/services/payments.rb
 module Payments
+  class CardDeclined < StandardError; end
+
   def self.charge(order, ticket)
     intent = Stripe::PaymentIntent.create(
       { amount: order.total_cents, currency: "usd", customer: order.user.stripe_id, confirm: true },
       { idempotency_key: ticket }
     )
     { "id" => intent.id } # se anota en el cuaderno, así que debe caber en JSON
+  rescue Stripe::CardError => e
+    raise CardDeclined, e.message # la receta habla tu idioma, no el de Stripe
   end
 
   def self.refund(charge, ticket)
@@ -149,8 +153,11 @@ config.solid_queue.connects_to = { database: { writing: :queue } }
 
 - **Los workers deben escuchar la cola de las sagas.** Es `:default` salvo que cambies `config.queue_name`; si la
   cambias, agrégala a tus workers (`config/queue.yml` en Solid Queue, `-q` en Sidekiq).
-- **En desarrollo** el adaptador `:async` que Rails trae por defecto corre los jobs dentro del servidor, con sleeps
-  y reintentos incluidos. Con Solid Queue, corre `bin/jobs` junto al servidor.
+- **En desarrollo** el adaptador `:async` que Rails trae por defecto guarda cada job en la memoria del proceso que lo
+  encoló. El servidor corre los suyos, con sleeps y reintentos incluidos, pero una saga arrancada desde la consola,
+  `bin/rails runner`, una tarea rake o `db/seeds.rb` se pierde cuando ese proceso termina, y las esperas programadas
+  se pierden cuando el servidor se reinicia. Un minuto después, `bin/rails active_durable:sweep` las recoge: con
+  `:async` las corre ahí mismo. O usa Solid Queue también en desarrollo, con `bin/jobs` junto al servidor.
 
 ### 3. El barrendero
 
@@ -306,6 +313,26 @@ it "charges once and confirms the order" do
 end
 ```
 
+Con Minitest, el que Rails trae por defecto:
+
+```ruby
+# test/test_helper.rb
+require "active_durable/testing"
+
+class ActiveSupport::TestCase
+  setup { ActiveDurable::Testing.reset! }
+end
+
+# test/services/place_order_test.rb
+class PlaceOrderTest < ActiveSupport::TestCase
+  test "charges once and confirms the order" do
+    order = PlaceOrder.call(email: "ana@example.com", total_cents: 4200)
+
+    assert_equal "completed", ActiveDurable::Testing.drain(order.checkout.id).status
+  end
+end
+```
+
 `drain` corre la saga ahí mismo, sin worker. Simula Stripe como ya lo haces y luego deja que el
 [probador de apagones](#pruebas-el-probador-de-apagones) apague la saga en cada punto.
 
@@ -382,10 +409,14 @@ deshacer tienen su propio ticket, `"...:<nombre del paso>:undo"`.
 
 <br>
 
-Cuando un paso agota sus intentos, lanza `ActiveDurable::Abort`, o la receta lanza un error, cada paso terminado se
-deshace, el último primero. Cada deshacer también queda anotado en el cuaderno, así que un apagón a mitad de deshacer
+Cuando un paso agota sus intentos o llama a `flow.abort!`, cada paso terminado se deshace, el último primero. Cada deshacer también queda anotado en el cuaderno, así que un apagón a mitad de deshacer
 continúa donde se quedó. Un deshacer recibe `(result, undo_ticket, step_ticket)` y toma tantos como declare:
 `-> { ... }` no toma ninguno. También sirve cualquier objeto que responda a `call`, como `Payments.method(:refund)`.
+
+**Un bug no es un fallo.** Cualquier otro error que lance la receta, y un `NameError` o `NoMethodError` dentro de un
+paso, bloquea la ejecución en vez de deshacerla: un typo en un despliegue nunca debe reembolsarles a tus clientes.
+Arregla el código y llama a `ActiveDurable.retry(id)`, o pulsa Retry en el dashboard, y la saga sigue desde donde se
+quedó. Para rechazar el trabajo por un motivo de negocio fuera de un paso, llama a `flow.abort!(motivo)`.
 
 Un paso que falló no se deshace, porque no ocurrió. La excepción es un paso cuyo fallo puede esconder un éxito, como
 un cobro cuya respuesta nunca llegó: declara `undo_on_failure: true` y su deshacer corre con `nil` como resultado,

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module ActiveDurable
-  # The dashboard and the rake tasks. Mount it in config/routes.rb:
+  # The dashboard. Mount it in config/routes.rb:
   #
   #   mount ActiveDurable::Engine => "/durable"
   class Engine < ::Rails::Engine
@@ -17,8 +17,6 @@ module ActiveDurable
       end
     end
 
-    rake_tasks do
-      load File.expand_path("../tasks/active_durable.rake", __dir__)
-    end
+    # The rake tasks in lib/tasks are loaded by Rails::Engine itself: loading them here too would run them twice.
   end
 end

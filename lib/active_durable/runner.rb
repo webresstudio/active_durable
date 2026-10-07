@@ -58,11 +58,18 @@ module ActiveDurable
       fail!(e)
     end
 
+    # Only a step that failed for good (StepFailed) or a business rejection (Abort) undoes the saga. Anything else
+    # the recipe raises is a bug: the execution is blocked, so fixing the code and calling ActiveDurable.retry
+    # carries it forward instead of refunding customers.
     def fail!(error)
-      return block!(error) if @flow.nil? || @flow.pivoted?
+      return block!(error) if @flow.nil? || @flow.pivoted? || !compensates?(error)
 
       start_compensation!(error) unless @flow.compensating?
       compensate!
+    end
+
+    def compensates?(error)
+      error.is_a?(StepFailed) || error.is_a?(Abort)
     end
 
     def complete!(output)
