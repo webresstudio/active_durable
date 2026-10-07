@@ -16,7 +16,7 @@ module ActiveDurable
       desc "Adds the migrations that newer ActiveDurable versions need. Run it after updating the gem."
 
       # In the order they were released. Never edit one that shipped: add a new one.
-      MIGRATIONS = %w[add_active_durable_prune_index].freeze
+      MIGRATIONS = %w[add_active_durable_prune_index make_active_durable_ids_case_sensitive].freeze
 
       # @api private
       def create_migration_files

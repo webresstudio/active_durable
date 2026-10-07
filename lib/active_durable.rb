@@ -129,7 +129,13 @@ module ActiveDurable
                      input: Serializer.normalize(input, "input") }
       return Execution.create!(attributes.merge(id: "#{recipe.name}-#{SecureRandom.uuid}")) if id.nil?
 
-      execution = Execution.create_or_find_by!(id: id.to_s) { |record| record.assign_attributes(attributes) }
+      execution = begin
+        Execution.create_or_find_by!(id: id.to_s) { |record| record.assign_attributes(attributes) }
+      rescue ActiveRecord::RecordNotFound
+        # Rails < 7.1 on MySQL: inside the app's transaction, the plain read after the duplicate insert uses an
+        # older snapshot and misses the row another start just committed. A locking read sees it.
+        Execution.lock.find(id.to_s)
+      end
       return execution if execution.recipe == recipe.name
 
       raise ArgumentError, "execution #{id} already exists for recipe :#{execution.recipe}"

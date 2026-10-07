@@ -1,0 +1,56 @@
+# frozen_string_literal: true
+
+# ActiveDurable 0.7: MySQL compared ids and step names ignoring case and accents, so "order-abc" and "order-ÁBC"
+# shared one saga. These columns now compare byte by byte, as on PostgreSQL and SQLite. Elsewhere it does nothing.
+class MakeActiveDurableIdsCaseSensitive < ActiveRecord::Migration<%= migration_version %>
+  COLUMNS = {
+    durable_executions: %w[id forked_from],
+    durable_steps: %w[execution_id name],
+    durable_signals: %w[execution_id name]
+  }.freeze
+
+  def up
+    change_collation { |_table| "utf8mb4_bin" }
+  end
+
+  def down
+    change_collation { |table| table_collation(table) }
+  end
+
+  private
+
+  def change_collation
+    return unless connection.adapter_name.match?(/mysql|trilogy/i)
+
+    changes = COLUMNS.flat_map do |table, names|
+      wanted = yield(table)
+      connection.columns(table).select { |column| names.include?(column.name) && column.collation != wanted }
+                .map { |column| [table, column, wanted] }
+    end
+    return if changes.empty?
+
+    # Both ends of a foreign key must share a collation, so the keys come off while the columns change.
+    without_foreign_keys do
+      changes.each do |table, column, collation|
+        change_column table, column.name, :string, limit: column.limit, null: column.null, collation: collation
+      end
+    end
+  end
+
+  def without_foreign_keys
+    keys = %i[durable_steps durable_signals].filter_map do |table|
+      key = connection.foreign_keys(table).find { |foreign_key| foreign_key.column == "execution_id" }
+      [table, key.options[:on_delete]] if key
+    end
+    keys.each { |table, _| remove_foreign_key table, column: :execution_id }
+    yield
+    keys.each do |table, on_delete|
+      add_foreign_key table, :durable_executions, column: :execution_id, on_delete: on_delete
+    end
+  end
+
+  def table_collation(table)
+    select_value("SELECT TABLE_COLLATION FROM information_schema.TABLES " \
+                 "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = #{connection.quote(table.to_s)}")
+  end
+end

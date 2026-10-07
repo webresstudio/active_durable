@@ -4,7 +4,7 @@ class CreateActiveDurableTables < ActiveRecord::Migration<%= migration_version %
   def change
     # One row per saga run. It is also the buzón: create it in the same transaction as your record.
     create_table :durable_executions, id: false do |t|
-      t.string :id, null: false, primary_key: true
+      t.string :id, null: false, primary_key: true, **exact
       t.string :recipe, null: false
       t.integer :recipe_version, null: false, default: 1
       t.string :status, null: false
@@ -15,7 +15,7 @@ class CreateActiveDurableTables < ActiveRecord::Migration<%= migration_version %
       t.datetime :wake_at, precision: 6
       t.datetime :locked_until, precision: 6
       t.string :lease_token
-      t.string :forked_from
+      t.string :forked_from, **exact
       t.timestamps precision: 6
     end
     add_index :durable_executions, %i[status wake_at]
@@ -25,8 +25,8 @@ class CreateActiveDurableTables < ActiveRecord::Migration<%= migration_version %
 
     # The notebook: one row per step (and per undo) of an execution.
     create_table :durable_steps do |t|
-      t.string :execution_id, null: false
-      t.string :name, null: false
+      t.string :execution_id, null: false, **exact
+      t.string :name, null: false, **exact
       t.string :kind, null: false
       t.integer :position
       t.string :status, null: false
@@ -42,8 +42,8 @@ class CreateActiveDurableTables < ActiveRecord::Migration<%= migration_version %
 
     # Signals for flow.wait_for. They can arrive before the saga starts waiting.
     create_table :durable_signals do |t|
-      t.string :execution_id, null: false
-      t.string :name, null: false
+      t.string :execution_id, null: false, **exact
+      t.string :name, null: false, **exact
       t.column :payload, json_type
       t.datetime :consumed_at, precision: 6
       t.datetime :created_at, null: false, precision: 6
@@ -57,5 +57,10 @@ class CreateActiveDurableTables < ActiveRecord::Migration<%= migration_version %
   # jsonb on PostgreSQL, json elsewhere. No database defaults on these columns: MySQL rejects them.
   def json_type
     connection.adapter_name.downcase.include?("postg") ? :jsonb : :json
+  end
+
+  # MySQL compares strings ignoring case and accents by default; ids and step names must match exactly.
+  def exact
+    connection.adapter_name.match?(/mysql|trilogy/i) ? { collation: "utf8mb4_bin" } : {}
   end
 end
