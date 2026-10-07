@@ -2,8 +2,8 @@
 
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
-[Semantic Versioning](https://semver.org/). Before 1.0 the database schema may change between minor versions:
-regenerate the migration when upgrading.
+[Semantic Versioning](https://semver.org/). Schema changes ship as new migrations: after updating the gem, run
+`bin/rails generate active_durable:upgrade` and `bin/rails db:migrate`.
 
 ## [Unreleased]
 
@@ -14,6 +14,12 @@ regenerate the migration when upgrading.
   with the notebook entry that records it (exactly once for database changes, covered by the crash tester); a failing
   hook blocks the execution and `ActiveDurable.retry` runs only the hook. The dashboard lists them in the notebook,
   and OpenTelemetry traces them.
+- Cleanup: `ActiveDurable.prune(older_than:)`, `ActiveDurable::PruneJob` and `bin/rails active_durable:prune` delete
+  finished executions (completed, compensated, superseded) older than `config.keep_finished_for` (30 days by
+  default), with their notebook and signals, in batches. Active and blocked executions are never deleted.
+- `bin/rails generate active_durable:upgrade` adds the migrations a newer version needs, skipping the ones the app
+  already has. The first one is an index on `durable_executions (status, updated_at)` for the cleanup and the
+  sweeper; new installs get it from `active_durable:install`.
 
 ### Changed
 

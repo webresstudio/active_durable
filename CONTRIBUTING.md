@@ -43,3 +43,6 @@ Other Rails versions live in `gemfiles/`: `BUNDLE_GEMFILE=gemfiles/rails-6.1.gem
 supported combination of Ruby, Rails and database.
 
 Add a line to `CHANGELOG.md` under `[Unreleased]` for anything a user would notice.
+
+A change to the database schema needs an upgrade migration too, not only a change in the install migration: see
+`lib/generators/active_durable/upgrade/` and the note in `CLAUDE.md`.

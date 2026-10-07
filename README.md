@@ -139,6 +139,9 @@ Run the three commands from the [quick start](#quick-start). The migration creat
 exactly once only because the notebook and your data commit together. A queue in its own database, like Solid
 Queue's in Rails 8, is fine.
 
+When you update the gem, run `bin/rails generate active_durable:upgrade` and then `bin/rails db:migrate`: it adds only
+the migrations your app is missing, and running it twice changes nothing.
+
 ### 2. A job backend
 
 ActiveDurable runs on Active Job, so it uses the backend you already have. New Rails 8 apps come with Solid Queue;
@@ -170,10 +173,17 @@ production:
   active_durable_sweep:
     class: ActiveDurable::SweepJob
     schedule: every minute
+  active_durable_prune:
+    class: ActiveDurable::PruneJob
+    schedule: every day at 4am
 ```
 
 With another backend, schedule `ActiveDurable::SweepJob` in its own scheduler (GoodJob cron, sidekiq-cron), or run
 `bin/rails active_durable:sweep` from cron.
+
+The second entry is the cleanup: finished executions (completed, undone or superseded) are kept for
+`config.keep_finished_for`, 30 days by default, and then `ActiveDurable::PruneJob` deletes them with their notebook.
+Active and blocked executions are never deleted. Without it, every saga stays in the database forever.
 
 ### 4. The initializer
 
@@ -190,6 +200,7 @@ ActiveDurable.configure do |config|
   config.backoff = ->(attempt) { [2**attempt, 3600].min } # or [5, 30, 300], or a number
   config.parallel_concurrency = 4       # threads per flow.parallel
   config.sweep_grace = 1.minute         # the sweeper leaves executions this young alone
+  config.keep_finished_for = 30.days    # then ActiveDurable::PruneJob deletes finished ones
 
   # Who may open the dashboard outside development and test. With Devise (HTTP basic auth: see Dashboard):
   config.dashboard_authorize = ->(controller) { controller.request.env["warden"]&.user&.admin? }
@@ -340,6 +351,7 @@ end
 
 - [ ] Workers are running and listen to `config.queue_name`.
 - [ ] The sweeper runs every minute.
+- [ ] The cleanup runs every day, or you keep every execution on purpose.
 - [ ] `dashboard_authorize` is set; without it the dashboard answers 403.
 - [ ] `lease_duration` is longer than your slowest step.
 - [ ] Every step that calls an outside service passes the ticket as its idempotency key.
@@ -574,6 +586,7 @@ end
 ActiveDurable.retry("checkout-7")                                   # blocked: try again where it stopped
 ActiveDurable.compensate("checkout-7", reason: "customer cancelled") # undo everything (only before the pivot)
 ActiveDurable.rerun("checkout-7", from: :ship)                      # a new execution reusing steps before :ship
+ActiveDurable.prune(older_than: 30.days)                            # delete finished executions and their notebook
 ```
 
 All three refuse an execution a worker is running right now. A rerun runs the chosen step and the following ones

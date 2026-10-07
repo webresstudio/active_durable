@@ -19,6 +19,7 @@ class CreateActiveDurableTables < ActiveRecord::Migration<%= migration_version %
       t.timestamps precision: 6
     end
     add_index :durable_executions, %i[status wake_at]
+    add_index :durable_executions, %i[status updated_at]
     add_index :durable_executions, %i[recipe status]
     add_index :durable_executions, :forked_from
 

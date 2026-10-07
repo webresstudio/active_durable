@@ -29,6 +29,10 @@ so renaming a README heading means updating the site too. `spec/site_spec.rb` ch
 - Public files (README.md, CHANGELOG.md, code and its comments) are in English. The maintainer writes in Spanish;
   design notes in `docs/` are in Spanish.
 - Every user-visible change gets a line in `CHANGELOG.md` under `[Unreleased]`.
+- Schema changes never go only into the install migration: apps that already installed it would miss them. Add a
+  template to `lib/generators/active_durable/upgrade/templates/` that checks the database first (see
+  `add_active_durable_prune_index.rb.tt`), append its name to `UpgradeGenerator::MIGRATIONS`, and make the same change
+  in the install template so new installs match.
 - Supported versions: Ruby 3.1+ and Rails 6.1+, on PostgreSQL, MySQL and SQLite. Do not use an API newer than that
   without a fallback. Watch for methods that exist only in newer Rails and fail silently in older ones: for example
   `Rails.env.local?` answers `false` before Rails 7.1 instead of raising.

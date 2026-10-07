@@ -16,6 +16,12 @@ namespace :active_durable do
     end
   end
 
+  desc "Delete finished executions older than config.keep_finished_for, with their notebook (run it daily)"
+  task prune: :environment do
+    days = (ActiveDurable.config.keep_finished_for.to_f / 86_400).round(2)
+    puts "ActiveDurable: deleted #{ActiveDurable.prune} finished execution(s) older than #{days} days"
+  end
+
   desc "Enqueue executions that should be running but have no job (run it every minute)"
   task sweep: :environment do
     ids, how = ActiveDurable::Sweeper.call_from_task

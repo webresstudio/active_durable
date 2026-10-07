@@ -8,7 +8,7 @@ RSpec.describe "rake tasks" do
 
   # Rails loads lib/tasks/*.rake of every engine by itself; loading them again would run each task twice.
   it "defines each task once" do
-    %w[active_durable:sweep active_durable:versions].each do |name|
+    %w[active_durable:sweep active_durable:prune active_durable:versions].each do |name|
       expect(Rake::Task[name].actions.size).to eq(1), "#{name} would run #{Rake::Task[name].actions.size} times"
     end
   end

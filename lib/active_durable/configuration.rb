@@ -25,6 +25,9 @@ module ActiveDurable
     # The sweeper ignores executions touched more recently than this, to leave room for their own job.
     attr_accessor :sweep_grace
 
+    # How long ActiveDurable.prune, PruneJob and rake active_durable:prune keep finished executions.
+    attr_accessor :keep_finished_for
+
     # Maximum threads used by flow.parallel. Your connection pool needs at least this many + 1 connections.
     attr_accessor :parallel_concurrency
 
@@ -46,6 +49,7 @@ module ActiveDurable
       @undo_attempts = 10
       @backoff = ->(attempt) { [2**attempt, 3600].min }
       @sweep_grace = 60
+      @keep_finished_for = 30 * 24 * 3600
       @parallel_concurrency = 4
       @clock = -> { Time.current }
       @dashboard_authorize = nil

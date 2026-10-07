@@ -1,0 +1,14 @@
+# frozen_string_literal: true
+
+# ActiveDurable 0.6: finds finished executions to prune, and quiet ones to sweep, without scanning the table.
+class AddActiveDurablePruneIndex < ActiveRecord::Migration<%= migration_version %>
+  def up
+    add_index :durable_executions, %i[status updated_at] unless index_exists?(:durable_executions, %i[status updated_at])
+  end
+
+  def down
+    return unless index_exists?(:durable_executions, %i[status updated_at])
+
+    remove_index :durable_executions, column: %i[status updated_at]
+  end
+end

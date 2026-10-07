@@ -40,6 +40,7 @@ Metrics/BlockLength:
   Exclude:
     - "spec/**/*"
     - "*.gemspec"
+    - "lib/tasks/*.rake" # a rake namespace only groups tasks
 
 # gemfiles/rails-X.Y.gemfile keep the Rails version in the name, as the CI matrix uses it.
 Naming/FileName:

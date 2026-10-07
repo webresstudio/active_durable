@@ -141,6 +141,9 @@ Corre los tres comandos del [inicio rápido](#inicio-rápido). La migración cre
 ocurre exactamente una vez solo porque el cuaderno y tus datos se confirman juntos. Una cola en su propia base de
 datos, como la de Solid Queue en Rails 8, no es problema.
 
+Cuando actualices la gema, corre `bin/rails generate active_durable:upgrade` y luego `bin/rails db:migrate`: agrega
+solo las migraciones que le faltan a tu app, y correrlo dos veces no cambia nada.
+
 ### 2. Un backend de jobs
 
 ActiveDurable corre sobre Active Job, así que usa el backend que ya tienes. Las apps nuevas de Rails 8 traen Solid
@@ -172,10 +175,17 @@ production:
   active_durable_sweep:
     class: ActiveDurable::SweepJob
     schedule: every minute
+  active_durable_prune:
+    class: ActiveDurable::PruneJob
+    schedule: every day at 4am
 ```
 
 Con otro backend, programa `ActiveDurable::SweepJob` en su propio planificador (GoodJob cron, sidekiq-cron), o corre
 `bin/rails active_durable:sweep` desde cron.
+
+La segunda entrada es la limpieza: las ejecuciones terminadas (completadas, deshechas o reemplazadas) se guardan
+durante `config.keep_finished_for`, 30 días por defecto, y luego `ActiveDurable::PruneJob` las borra junto con su
+cuaderno. Las activas y las bloqueadas nunca se borran. Sin ella, cada saga se queda en la base de datos para siempre.
 
 ### 4. El initializer
 
@@ -192,6 +202,7 @@ ActiveDurable.configure do |config|
   config.backoff = ->(attempt) { [2**attempt, 3600].min } # o [5, 30, 300], o un número
   config.parallel_concurrency = 4       # hilos por flow.parallel
   config.sweep_grace = 1.minute         # el barrendero no toca ejecuciones más recientes que esto
+  config.keep_finished_for = 30.days    # luego ActiveDurable::PruneJob borra las terminadas
 
   # Quién puede abrir el dashboard fuera de development y test. Con Devise (HTTP basic auth: ver Dashboard):
   config.dashboard_authorize = ->(controller) { controller.request.env["warden"]&.user&.admin? }
@@ -343,6 +354,7 @@ end
 
 - [ ] Los workers están corriendo y escuchan `config.queue_name`.
 - [ ] El barrendero corre cada minuto.
+- [ ] La limpieza corre cada día, o guardas todas las ejecuciones a propósito.
 - [ ] `dashboard_authorize` está definido; sin él, el dashboard responde 403.
 - [ ] `lease_duration` es más largo que tu paso más lento.
 - [ ] Cada paso que llama a un servicio de fuera pasa el ticket como llave de idempotencia.
@@ -581,6 +593,7 @@ end
 ActiveDurable.retry("checkout-7")                                   # bloqueada: reintenta donde se quedó
 ActiveDurable.compensate("checkout-7", reason: "customer cancelled") # deshace todo (solo antes del pivote)
 ActiveDurable.rerun("checkout-7", from: :ship)                      # ejecución nueva que reusa los pasos antes de :ship
+ActiveDurable.prune(older_than: 30.days)                            # borra las terminadas y su cuaderno
 ```
 
 Las tres rechazan una ejecución que un trabajador esté corriendo en ese momento. Volver a correr ejecuta el paso

@@ -22,6 +22,7 @@ require_relative "active_durable/parallel"
 require_relative "active_durable/flow_parallel"
 require_relative "active_durable/runner"
 require_relative "active_durable/sweeper"
+require_relative "active_durable/pruner"
 require_relative "active_durable/operations"
 
 # Durable sagas for Rails. See README.md.
@@ -34,6 +35,7 @@ module ActiveDurable
   autoload :SignalRecord, File.expand_path("active_durable/signal_record", __dir__)
   autoload :RunJob, File.expand_path("active_durable/run_job", __dir__)
   autoload :SweepJob, File.expand_path("active_durable/sweep_job", __dir__)
+  autoload :PruneJob, File.expand_path("active_durable/prune_job", __dir__)
 
   class << self
     attr_writer :time_offset
@@ -105,6 +107,12 @@ module ActiveDurable
 
     def rerun(execution_id, from:)
       Operations.rerun(execution_id, from: from)
+    end
+
+    # Deletes finished executions older than older_than (config.keep_finished_for by default) with their notebook.
+    # Returns how many were deleted. See ActiveDurable::Pruner.
+    def prune(older_than: config.keep_finished_for)
+      Pruner.call(older_than: older_than)
     end
 
     def now
