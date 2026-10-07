@@ -38,7 +38,7 @@ module ActiveDurable
       lease.release!(status: status, wake_at: wake_at)
       ActiveDurable.enqueue(execution.id, wait_until: wake_at) if wake_at
       # A signal may have been committed while we held the lease; its own job found us busy.
-      if status == "waiting" && SignalRecord.pending.exists?(execution_id: execution.id)
+      if status == "waiting" && SignalRecord.awaited.exists?(execution_id: execution.id)
         ActiveDurable.enqueue(execution.id)
       end
       throw SUSPEND, status.to_sym

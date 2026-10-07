@@ -6,8 +6,6 @@ module ActiveDurable
   #
   # @api private
   module Pruner
-    FINISHED = %w[completed compensated superseded].freeze
-
     module_function
 
     # Returns how many executions were deleted. Each batch is deleted in its own transaction, steps and signals
@@ -18,7 +16,7 @@ module ActiveDurable
       cutoff = now - older_than.to_f
       deleted = 0
       loop do
-        ids = Execution.where(status: FINISHED).where("updated_at < ?", cutoff).limit(batch_size).pluck(:id)
+        ids = Execution.where(status: Execution::FINISHED).where("updated_at < ?", cutoff).limit(batch_size).pluck(:id)
         break if ids.empty?
 
         Record.transaction do

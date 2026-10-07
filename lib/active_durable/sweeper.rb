@@ -35,7 +35,7 @@ module ActiveDurable
                        .where("updated_at < ?", now - ActiveDurable.config.sweep_grace.to_f)
       ready = quiet.where(status: %w[pending running])
                    .or(quiet.where(wake_at: ..now))
-                   .or(quiet.where(status: "waiting", id: SignalRecord.pending.select(:execution_id)))
+                   .or(quiet.where(status: "waiting", id: SignalRecord.awaited.select(:execution_id)))
       ready.pluck(:id)
     end
   end

@@ -11,6 +11,8 @@ module ActiveDurable
     # Statuses where nothing happens without a person: done, undone, blocked (needs {ActiveDurable.retry},
     # {ActiveDurable.compensate} or a fix), or replaced by a rerun.
     TERMINAL = %w[completed compensated blocked superseded].freeze
+    # Statuses that never change again: signals are refused and ActiveDurable.prune may delete them.
+    FINISHED = %w[completed compensated superseded].freeze
     # Every status.
     STATUSES = (ACTIVE + TERMINAL).freeze
 
@@ -40,6 +42,11 @@ module ActiveDurable
     # @return [Boolean] whether it needs a person to move again, or finished
     def terminal?
       TERMINAL.include?(status)
+    end
+
+    # @return [Boolean] whether it will never change again (blocked is not finished: it can be retried)
+    def finished?
+      FINISHED.include?(status)
     end
 
     # The forward steps in recipe order (undo and hook entries excluded).

@@ -110,7 +110,7 @@ module ActiveDurable
 
     # @api private
     def waiting_can_move?(execution, signals, now)
-      return true if SignalRecord.pending.exists?(execution_id: execution.id)
+      return true if SignalRecord.awaited.exists?(execution_id: execution.id)
 
       waiting = execution.steps.find_by(status: "waiting")
       if waiting && signals.key?(waiting.name)

@@ -136,19 +136,19 @@ module ActiveDurable
     end
 
     # Delivers a signal to a saga waiting, now or later, in flow.wait_for(name). A signal that arrives before the
-    # saga waits is kept until it does.
+    # saga waits is kept until it does, also while the saga is blocked.
     #
     # @param execution_id [String]
     # @param name [Symbol, String] the name given to {Flow#wait_for}
     # @param payload [Object] what wait_for returns; stored as JSON
     # @return [void]
     # @raise [ActiveRecord::RecordNotFound] if there is no such execution
-    # @raise [Error] if the execution already finished
+    # @raise [Error] if the execution already finished: completed, compensated or superseded
     # @example In a webhook controller
     #   Durable.signal("loan-42", :kyc_done, verified: true)
     def signal(execution_id, name, payload = nil)
       execution = Execution.find(execution_id)
-      raise Error, "execution #{execution_id} already finished (#{execution.status})" if execution.terminal?
+      raise Error, "execution #{execution_id} already finished (#{execution.status})" if execution.finished?
 
       SignalRecord.create!(execution_id: execution.id, name: name.to_s,
                            payload: Serializer.normalize(payload, "signal payload"))
