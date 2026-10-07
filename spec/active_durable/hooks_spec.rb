@@ -89,6 +89,28 @@ RSpec.describe "flow.on hooks" do
     expect(charges).to eq(1)
   end
 
+  it "blocks when the compensated hook fails, and a retry runs only the hook, not the undos" do
+    undone = 0
+    crm_down = true
+    Durable.define(:checkout) do |flow|
+      flow.on(:compensated) { raise "crm down" if crm_down }
+      flow.step(:charge, undo: -> { undone += 1 }) { true }
+      flow.step(:dispatch, retry: false) { raise "carrier said no" }
+    end
+    id = Durable.start(:checkout).id
+
+    execution = drain(id)
+    expect(execution.status).to eq("blocked")
+    expect(execution.compensating).to be(true)
+    expect(execution.error).to include("class" => "ActiveDurable::HookFailed", "step" => "~compensated")
+
+    crm_down = false
+    Durable.retry(id)
+
+    expect(drain(id).status).to eq("compensated")
+    expect(undone).to eq(1)
+  end
+
   it "changes the database exactly once, wherever the process dies" do
     product = TestProduct.create!(stock: 0)
     Durable.define(:checkout) do |flow, order_id:|
