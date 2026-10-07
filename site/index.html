@@ -86,7 +86,7 @@ h2 { font-size: clamp(1.8rem, 4vw, 2.6rem); }
 .badges img { height: 20px; width: auto; }
 .cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; align-items: center; }
 .cmd { display: inline-flex; align-items: center; gap: 4px; background: var(--sunken); border: 1px solid var(--line); border-radius: 12px; padding: 5px 5px 5px 16px; max-width: 100%; }
-.cmd code { font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmd code { min-width: 0; font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cmd code::before { content: "$ "; color: var(--slate); }
 .copy { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 6px 11px; font-size: .8rem; font-weight: 700; color: var(--soft); cursor: pointer; flex: none; }
 .copy:hover { color: var(--ink); border-color: var(--slate); }
@@ -286,7 +286,7 @@ tr.us td:first-child { color: var(--jade); }
 /* Install */
 .install { display: grid; grid-template-columns: 1.1fr 1fr; gap: 28px; align-items: start; }
 .steps { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; counter-reset: step; }
-.steps li { counter-increment: step; display: flex; align-items: center; gap: 12px; }
+.steps li { min-width: 0; counter-increment: step; display: flex; align-items: center; gap: 12px; }
 .steps li::before { content: counter(step); flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--jade-bg); color: var(--jade); font: 700 .85rem/1 var(--f-display); }
 .steps .cmd { flex: 1; min-width: 0; justify-content: space-between; }
 .req { margin-top: 18px; color: var(--soft); font-size: .9rem; }
@@ -316,6 +316,7 @@ footer a:hover { color: var(--ink); }
       <a href="#why" data-t="nav.why">Why</a>
       <a href="#try" data-t="nav.try">Simulator</a>
       <a href="#code" data-t="nav.code">Code</a>
+      <a href="#bench" data-t="nav.bench">Benchmarks</a>
       <a href="#install" data-t="nav.install">Install</a>
     </nav>
     <div class="lang" role="group" aria-label="Language" data-t-label="lang.label">
@@ -522,6 +523,38 @@ footer a:hover { color: var(--ink); }
     </div>
   </section>
 
+  <section id="bench">
+    <div class="wrap">
+      <div class="head reveal">
+        <p class="eyebrow" data-t="bench.eyebrow">Does it hold?</p>
+        <h2 data-t="bench.title">Workers killed mid-checkout, no double charge</h2>
+        <p class="lede" data-t="bench.lede">2,000 checkouts of 5 steps on 8 worker processes. Then the same while a worker is killed with SIGKILL every second: every saga settles, and none is charged twice.</p>
+      </div>
+      <div class="table-wrap reveal">
+        <table>
+          <thead><tr><th></th><th>PostgreSQL 16</th><th>MySQL 9.6</th><th>SQLite 3</th></tr></thead>
+          <tbody>
+            <tr><td data-t="bench.r.step">A step (one durable commit)</td><td>1.8 ms</td><td>3.0 ms</td><td>0.45 ms</td></tr>
+            <tr><td data-t="bench.r.resume">Resuming a saga with 1,000 finished steps</td><td>17 ms</td><td>21 ms</td><td>9 ms</td></tr>
+            <tr><td data-t="bench.r.load">2,000 sagas, 8 workers</td><td>6.9 s</td><td>8.1 s</td><td data-t="bench.sqlite">1,000 sagas, 4 workers: 6.5 s</td></tr>
+            <tr><td data-t="bench.r.chaos">The same, killing a worker every second</td><td data-t="bench.pg.chaos">9.2 s, 9 workers killed</td><td data-t="bench.my.chaos">13.2 s, 13 workers killed</td><td>—</td></tr>
+            <tr class="us"><td data-t="bench.r.dupes">Duplicate charges</td><td>0</td><td>0</td><td>0</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="req reveal" data-t="bench.measured">Apple M1 Ultra, Ruby 4.0.7, Rails 8.1, each database on the same machine. Each call to the outside world takes 5 ms, like a real API.</p>
+      <div class="reveal" style="margin-top: 28px">
+        <h3 data-t="bench.run" style="margin-bottom: 14px">Run it yourself</h3>
+        <ol class="steps">
+          <li><div class="cmd"><code>git clone https://github.com/webresstudio/active_durable &amp;&amp; cd active_durable &amp;&amp; bundle install</code><button type="button" class="copy" data-copy="git clone https://github.com/webresstudio/active_durable &amp;&amp; cd active_durable &amp;&amp; bundle install" data-t="copy">Copy</button></div></li>
+          <li><div class="cmd"><code>DB=postgresql CHAOS=1 bundle exec ruby benchmarks/load.rb</code><button type="button" class="copy" data-copy="DB=postgresql CHAOS=1 bundle exec ruby benchmarks/load.rb" data-t="copy">Copy</button></div></li>
+        </ol>
+        <p class="req" data-t="bench.note">It needs a PostgreSQL server on your machine; DB=mysql and DB=sqlite3 run the others. The script fails unless every saga completes with exactly one charge.</p>
+        <a class="btn" style="margin-top: 18px" href="https://github.com/webresstudio/active_durable/blob/main/benchmarks/README.md" data-t="bench.more">How the benchmarks work →</a>
+      </div>
+    </div>
+  </section>
+
   <section id="install">
     <div class="wrap install">
       <div class="reveal">
@@ -564,6 +597,7 @@ footer a:hover { color: var(--ink); }
     "nav.try": "Simulator",
     "nav.code": "Code",
     "nav.install": "Install",
+    "nav.bench": "Benchmarks",
     "lang.label": "Language",
     "hero.eyebrow": "Ruby gem for Rails",
     "hero.title": "Finish the work, <em>or undo it in order.</em>",
@@ -766,6 +800,21 @@ footer a:hover { color: var(--ink); }
     "cmp.r4.undo": "written by hand",
     "cmp.r4.needs": "a Temporal cluster",
     "cmp.us.undo": "yes, in reverse, with a point of no return",
+    "bench.eyebrow": "Does it hold?",
+    "bench.title": "Workers killed mid-checkout, no double charge",
+    "bench.lede": "2,000 checkouts of 5 steps on 8 worker processes. Then the same while a worker is killed with SIGKILL every second: every saga settles, and none is charged twice.",
+    "bench.r.step": "A step (one durable commit)",
+    "bench.r.resume": "Resuming a saga with 1,000 finished steps",
+    "bench.r.load": "2,000 sagas, 8 workers",
+    "bench.sqlite": "1,000 sagas, 4 workers: 6.5 s",
+    "bench.r.chaos": "The same, killing a worker every second",
+    "bench.pg.chaos": "9.2 s, 9 workers killed",
+    "bench.my.chaos": "13.2 s, 13 workers killed",
+    "bench.r.dupes": "Duplicate charges",
+    "bench.measured": "Apple M1 Ultra, Ruby 4.0.7, Rails 8.1, each database on the same machine. Each call to the outside world takes 5 ms, like a real API.",
+    "bench.run": "Run it yourself",
+    "bench.note": "It needs a PostgreSQL server on your machine; DB=mysql and DB=sqlite3 run the others. The script fails unless every saga completes with exactly one charge.",
+    "bench.more": "How the benchmarks work →",
     "install.eyebrow": "Install",
     "install.title": "Three commands, then your first saga",
     "install.lede": "The step-by-step guide sets up the rest of a Rails app: job backend, sweeper, initializer, dashboard and tests.",
@@ -783,6 +832,7 @@ footer a:hover { color: var(--ink); }
     "nav.try": "Simulador",
     "nav.code": "Código",
     "nav.install": "Instalar",
+    "nav.bench": "Rendimiento",
     "lang.label": "Idioma",
     "hero.eyebrow": "Gema de Ruby para Rails",
     "hero.title": "Termina el trabajo, <em>o deshazlo en orden.</em>",
@@ -985,6 +1035,21 @@ footer a:hover { color: var(--ink); }
     "cmp.r4.undo": "programado a mano",
     "cmp.r4.needs": "un clúster de Temporal",
     "cmp.us.undo": "sí, en reversa y con punto de no retorno",
+    "bench.eyebrow": "¿Aguanta?",
+    "bench.title": "Workers muertos a mitad de la compra, ningún cobro doble",
+    "bench.lede": "2,000 compras de 5 pasos en 8 procesos worker. Luego lo mismo matando un worker con SIGKILL cada segundo: todas las sagas terminan y ninguna cobra dos veces.",
+    "bench.r.step": "Un paso (un COMMIT durable)",
+    "bench.r.resume": "Reanudar una saga con 1,000 pasos terminados",
+    "bench.r.load": "2,000 sagas, 8 workers",
+    "bench.sqlite": "1,000 sagas, 4 workers: 6.5 s",
+    "bench.r.chaos": "Lo mismo, matando un worker cada segundo",
+    "bench.pg.chaos": "9.2 s, 9 workers matados",
+    "bench.my.chaos": "13.2 s, 13 workers matados",
+    "bench.r.dupes": "Cobros duplicados",
+    "bench.measured": "Apple M1 Ultra, Ruby 4.0.7, Rails 8.1, cada base de datos en la misma máquina. Cada llamada al mundo de fuera tarda 5 ms, como una API real.",
+    "bench.run": "Córrelo tú",
+    "bench.note": "Necesita un servidor PostgreSQL en tu máquina; DB=mysql y DB=sqlite3 corren las otras. El script falla si alguna saga no termina con exactamente un cobro.",
+    "bench.more": "Cómo funcionan los benchmarks →",
     "install.eyebrow": "Instalar",
     "install.title": "Tres comandos, y luego tu primera saga",
     "install.lede": "La guía paso a paso configura el resto de una app Rails: backend de jobs, barrendero, initializer, dashboard y pruebas.",
