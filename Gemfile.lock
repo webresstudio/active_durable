@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    active_durable (0.6.0)
+    active_durable (0.7.0)
       activejob (>= 6.1, < 9)
       activerecord (>= 6.1, < 9)
       activesupport (>= 6.1, < 9)

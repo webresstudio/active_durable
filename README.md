@@ -212,6 +212,7 @@ ActiveDurable.configure do |config|
   config.parallel_concurrency = 4       # threads per flow.parallel
   config.sweep_grace = 1.minute         # the sweeper leaves executions this young alone
   config.keep_finished_for = 30.days    # then ActiveDurable::PruneJob deletes finished ones
+  config.code_errors += ["Payments::Misconfigured"] # your own errors that mean a bug (see "A bug is not a failure")
 
   # Who may open the dashboard outside development and test. With Devise (HTTP basic auth: see Dashboard):
   config.dashboard_authorize = ->(controller) { controller.request.env["warden"]&.user&.admin? }
@@ -438,10 +439,33 @@ When a step runs out of attempts or calls `flow.abort!`, every finished step is 
 stopped. An undo receives `(result, undo_ticket, step_ticket)` and takes as many as it declares: `-> { ... }` takes
 none. Any object that responds to `call` works too, such as `Payments.method(:refund)`.
 
-**A bug is not a failure.** Anything else the recipe raises, and a `NameError` or `NoMethodError` inside a step,
-blocks the execution instead of undoing it: a typo in a deploy must never refund your customers. Fix the code and
-call `ActiveDurable.retry(id)`, or press Retry in the dashboard, and the saga carries on from where it stopped. To
-reject the work for a business reason outside a step, call `flow.abort!(reason)`.
+**A bug is not a failure.** Undoing a saga refunds money and releases stock, so only a step that failed for good or
+`flow.abort!` triggers it. These block the execution instead, without retrying, because a typo in a deploy must never
+refund your customers:
+
+- anything the recipe raises outside a step;
+- inside a step, an error that means the code is wrong: `NameError` (and `NoMethodError`), `ArgumentError`,
+  `TypeError`, `IndexError` (and `KeyError`), `FrozenError`, `ZeroDivisionError`, `RangeError`,
+  `NoMatchingPatternError`, `LocalJumpError`, `RegexpError`, `EncodingError`, and the errors outside
+  `StandardError` such as `LoadError`, `NotImplementedError` and `SystemStackError`;
+- a step whose result cannot be stored (a NUL character, bytes that are not UTF-8): it already acted.
+
+Fix the code and call `ActiveDurable.retry(id)`, or press Retry in the dashboard, and the saga carries on from where it
+stopped. Rescuing the error in the recipe does not help: the saga stops at the next step and blocks anyway. To reject
+the work for a business reason, call `flow.abort!(reason)`.
+
+The list is `config.code_errors`. Add your own errors, as a class or as a name (a name also matches subclasses, and
+works before the gem that defines it is loaded), or drop one:
+
+```ruby
+ActiveDurable.configure do |config|
+  config.code_errors << "Payments::Misconfigured"
+  config.code_errors -= ["ArgumentError"] # if a gem you call raises it for bad input
+end
+```
+
+An `ArgumentError` from bad data, like an invalid date, blocks too: a person decides. To treat one of these errors as
+a failure in a single step, rescue it inside the step and raise another error, or call `flow.abort!`.
 
 A step that failed is not undone, because it did not happen. The exception is a step whose failure may hide a
 success, like a charge whose answer timed out: declare `undo_on_failure: true` and its undo runs with `nil` as the
@@ -502,7 +526,7 @@ For progress before the end (paid, shipped), write a step: `flow.transaction(:ma
 <br>
 
 `flow.sleep` writes the wake-up time down and releases the worker. `flow.wait_for` does the same until a signal
-arrives. Signals can arrive before the saga starts waiting.
+arrives. Signals can arrive before the saga starts waiting, or while it is blocked: they are kept until it does.
 
 ```ruby
 kyc = flow.wait_for(:kyc_done, timeout: 2.hours)
@@ -595,14 +619,21 @@ end
 ## Operating sagas
 
 ```ruby
-ActiveDurable.retry("checkout-7")                                   # blocked: try again where it stopped
+ActiveDurable.retry("checkout-7")                                   # blocked: try again the step that blocked it
 ActiveDurable.compensate("checkout-7", reason: "customer cancelled") # undo everything (only before the pivot)
 ActiveDurable.rerun("checkout-7", from: :ship)                      # a new execution reusing steps before :ship
 ActiveDurable.prune(older_than: 30.days)                            # delete finished executions and their notebook
 ```
 
-All three refuse an execution a worker is running right now. A rerun runs the chosen step and the following ones
-again with new tickets, so they have effects again; a blocked original becomes `superseded`.
+`retry` gives the step that blocked the saga a fresh set of attempts. Failed steps the recipe already handled stay
+failed: if Stripe failed and the recipe paid with PayPal instead, a retry never runs Stripe again.
+
+A rerun (`<id>~rerun-<random>`) keeps the steps before the chosen one, failed ones and parallel branches included,
+and runs the chosen step and the following ones again with new tickets, so they have effects again. A blocked
+original becomes `superseded`.
+
+None of them touches an execution a worker is running. `compensate` refuses a `running` execution even after its
+lease ran out: the worker may still be inside a slow step, and if it died, the sweeper resumes it.
 
 ## Testing: the crash tester
 
@@ -719,6 +750,15 @@ while sagas were halfway through. All of them settled, the refunds and hooks ran
 - A hook (`flow.on`) runs once; exactly once if it only touches your database.
 - A bug never undoes a saga: an error in the code blocks it until you fix it and call `ActiveDurable.retry`.
 - Sagas do not isolate each other: two sagas can see each other's intermediate states.
+- `Durable.start(id:)` is idempotent while the execution exists. Once it is pruned (`keep_finished_for`, 30 days),
+  the same id starts a new saga with the same tickets: keep finished executions longer than a webhook can be
+  delivered again.
+- The lease is renewed on each notebook write. A step longer than `lease_duration` can run twice at the same time,
+  with the same ticket. Keep the workers' clocks in sync (NTP): the lease compares times written by different
+  machines.
+- Error messages are stored in the notebook and reach the dashboard, the logs, the `blocked` event and
+  OpenTelemetry: keep secrets and personal data out of them.
+- Ids cannot be blank or contain `/`. Ids and step names compare exactly, also on MySQL.
 - `flow.transaction` is atomic only when the notebook lives in the same database as your data.
 
 ## Development

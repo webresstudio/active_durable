@@ -5,19 +5,67 @@ All notable changes to this project are documented here. The format follows
 [Semantic Versioning](https://semver.org/). Schema changes ship as new migrations: after updating the gem, run
 `bin/rails generate active_durable:upgrade` and `bin/rails db:migrate`.
 
-## [Unreleased]
+## [0.7.0] - 2026-10-07
+
+Fixes from an architecture and security review. Most of them stop a saga from paying twice or undoing the wrong
+thing.
+
+Upgrading from 0.6: `bin/rails generate active_durable:upgrade && bin/rails db:migrate`. The new migration only
+changes MySQL databases. Note the behavior changes below: more errors block instead of undoing, `retry` no longer
+resets every failed step, rerun ids are random, and `Durable.start` refuses some ids.
+
+### Changed
+
+- More errors count as bugs and block the saga instead of being retried and undone: `ArgumentError`, `TypeError`,
+  `IndexError` and `KeyError`, `FrozenError`, `ZeroDivisionError`, `RangeError`, `NoMatchingPatternError`,
+  `LocalJumpError`, `RegexpError` and `EncodingError`, besides `NameError` and `NoMethodError`. The list is the new
+  `config.code_errors`, which takes classes or names, so an app can add its own errors or drop one.
+- A step that blocks is written in the notebook as `blocked`, and runs again after `ActiveDurable.retry`. Rescuing
+  its error in the recipe no longer lets the saga carry on.
+- `ActiveDurable.retry` gives a fresh set of attempts only to the step that blocked the saga (with its whole
+  `flow.parallel`) and to steps that hit a bug. Compensating, it still resets every failed undo.
+- Rerun ids are `<id>~rerun-<random>` instead of `<id>~rerun-<count>`.
+- `ActiveDurable.compensate` refuses `running` executions, even after their lease ran out.
+- `Durable.start` refuses ids that are blank, contain `/`, a NUL character or bytes that are not UTF-8.
+- The serializer converts binary strings that are valid UTF-8 (such as `Net::HTTP` bodies) and strings in other
+  encodings to UTF-8, and rejects NUL characters and invalid bytes, in values and keys.
+
+### Fixed
+
+- `retry` ran again a failed step the recipe had already handled: with a fallback (Stripe fails, the recipe pays
+  with PayPal) and a later bug, retrying charged twice. `rerun` did the same; it now copies the failed steps before
+  the chosen one too.
+- A step whose result the database refused (a NUL on PostgreSQL, bytes that are not UTF-8 on MySQL and SQLite, any
+  failed write) counted as a failed attempt: it ran again, then the saga was undone without undoing it. It now
+  blocks.
+- Undoing a saga by hand skipped a step declared `undo_on_failure` that was between attempts or blocked, and the
+  finished branches of a `flow.parallel` stopped halfway.
+- An operator could undo a saga while its worker was still inside a step longer than `lease_duration`.
+- A pending signal nobody was waiting for (a duplicate webhook) made the saga enqueue itself again forever.
+- Signals sent to a blocked saga were refused and lost.
+- `rerun` lost the undos of the `flow.parallel` branches before the chosen step, and from a branch it ran nothing;
+  the dashboard no longer offers branches.
+- On MySQL, ids and step names that differ only in case or accents were treated as the same. The new migration
+  makes those columns `utf8mb4_bin`.
+- `raise ActiveRecord::Rollback` inside `flow.transaction`, an undo or a hook counted as success.
+- On Rails 6.1 and 7.0 with MySQL, two concurrent `start` calls with the same id inside the app's transaction made
+  the second raise `RecordNotFound`.
+- Rerun ids collided after pruning, and could give a new rerun the tickets of a pruned one.
+- An id with `/` broke the whole dashboard list.
+- `LoadError`, `NotImplementedError` and `SystemStackError` left the saga running, retried forever by the sweeper.
+- A bug in an undo used up all its attempts before blocking; it now blocks at once.
+- Error messages are cleaned up (invalid bytes, NUL) before they are stored.
+- README: how to run Solid Queue in development, and the sweeper and cleanup entries go under the `production:` key
+  Rails already wrote in `config/recurring.yml`. Pasting a second `production:` key silently dropped Rails' own
+  `clear_solid_queue_finished_jobs` task.
 
 ### Added
 
 - Benchmarks in `benchmarks/`: the cost of a step and of resuming a long saga (`throughput.rb`), and many worker
   processes on the same sagas, optionally killing one with SIGKILL every second (`load.rb`, `CHAOS=1`). The README
   has a "Performance" section with the results on PostgreSQL, MySQL and SQLite.
-
-### Fixed
-
-- README: how to run Solid Queue in development, and the sweeper and cleanup entries go under the `production:` key
-  Rails already wrote in `config/recurring.yml`. Pasting a second `production:` key silently dropped Rails' own
-  `clear_solid_queue_finished_jobs` task.
+- README: what counts as a bug, `config.code_errors`, and new limits: ids are forgotten after pruning, the lease and
+  slow steps, clocks, and secrets in error messages.
 
 ## [0.6.0] - 2026-10-06
 

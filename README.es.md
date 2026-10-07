@@ -215,6 +215,7 @@ ActiveDurable.configure do |config|
   config.parallel_concurrency = 4       # hilos por flow.parallel
   config.sweep_grace = 1.minute         # el barrendero no toca ejecuciones más recientes que esto
   config.keep_finished_for = 30.days    # luego ActiveDurable::PruneJob borra las terminadas
+  config.code_errors += ["Payments::Misconfigured"] # tus propios errores que son un bug (ver «Un bug no es un fallo»)
 
   # Quién puede abrir el dashboard fuera de development y test. Con Devise (HTTP basic auth: ver Dashboard):
   config.dashboard_authorize = ->(controller) { controller.request.env["warden"]&.user&.admin? }
@@ -442,10 +443,33 @@ Cuando un paso agota sus intentos o llama a `flow.abort!`, cada paso terminado s
 continúa donde se quedó. Un deshacer recibe `(result, undo_ticket, step_ticket)` y toma tantos como declare:
 `-> { ... }` no toma ninguno. También sirve cualquier objeto que responda a `call`, como `Payments.method(:refund)`.
 
-**Un bug no es un fallo.** Cualquier otro error que lance la receta, y un `NameError` o `NoMethodError` dentro de un
-paso, bloquea la ejecución en vez de deshacerla: un typo en un despliegue nunca debe reembolsarles a tus clientes.
+**Un bug no es un fallo.** Deshacer una saga devuelve dinero y libera stock, así que solo lo provoca un paso que falló
+del todo o `flow.abort!`. Esto bloquea la ejecución, sin reintentar, porque un typo en un despliegue nunca debe
+reembolsarles a tus clientes:
+
+- cualquier error que lance la receta fuera de un paso;
+- dentro de un paso, un error que dice que el código está mal: `NameError` (y `NoMethodError`), `ArgumentError`,
+  `TypeError`, `IndexError` (y `KeyError`), `FrozenError`, `ZeroDivisionError`, `RangeError`,
+  `NoMatchingPatternError`, `LocalJumpError`, `RegexpError`, `EncodingError`, y los errores fuera de
+  `StandardError`, como `LoadError`, `NotImplementedError` y `SystemStackError`;
+- un paso cuyo resultado no se puede guardar (un carácter NUL, bytes que no son UTF-8): ya actuó.
+
 Arregla el código y llama a `ActiveDurable.retry(id)`, o pulsa Retry en el dashboard, y la saga sigue desde donde se
-quedó. Para rechazar el trabajo por un motivo de negocio fuera de un paso, llama a `flow.abort!(motivo)`.
+quedó. Rescatar el error en la receta no sirve: la saga se detiene en el paso siguiente y se bloquea igual. Para
+rechazar el trabajo por un motivo de negocio, llama a `flow.abort!(motivo)`.
+
+La lista es `config.code_errors`. Agrega tus propios errores, como clase o como nombre (un nombre también abarca sus
+subclases, y funciona antes de que se cargue la gema que lo define), o quita uno:
+
+```ruby
+ActiveDurable.configure do |config|
+  config.code_errors << "Payments::Misconfigured"
+  config.code_errors -= ["ArgumentError"] # si una gema que usas lo lanza por datos malos
+end
+```
+
+Un `ArgumentError` por datos malos, como una fecha inválida, también bloquea: decide una persona. Para tratar uno de
+estos errores como un fallo en un solo paso, rescátalo dentro del paso y lanza otro error, o llama a `flow.abort!`.
 
 Un paso que falló no se deshace, porque no ocurrió. La excepción es un paso cuyo fallo puede esconder un éxito, como
 un cobro cuya respuesta nunca llegó: declara `undo_on_failure: true` y su deshacer corre con `nil` como resultado,
@@ -509,7 +533,8 @@ Para el avance antes del final (pagado, enviado), escribe un paso: `flow.transac
 <br>
 
 `flow.sleep` anota la hora de despertar y libera al trabajador. `flow.wait_for` hace lo mismo hasta que llega una
-señal. Las señales pueden llegar antes de que la saga empiece a esperarlas.
+señal. Las señales pueden llegar antes de que la saga empiece a esperarlas, o mientras está bloqueada: se guardan
+hasta que las espera.
 
 ```ruby
 kyc = flow.wait_for(:kyc_done, timeout: 2.hours)
@@ -603,15 +628,21 @@ end
 ## Operar las sagas
 
 ```ruby
-ActiveDurable.retry("checkout-7")                                   # bloqueada: reintenta donde se quedó
+ActiveDurable.retry("checkout-7")                                   # bloqueada: reintenta el paso que la bloqueó
 ActiveDurable.compensate("checkout-7", reason: "customer cancelled") # deshace todo (solo antes del pivote)
 ActiveDurable.rerun("checkout-7", from: :ship)                      # ejecución nueva que reusa los pasos antes de :ship
 ActiveDurable.prune(older_than: 30.days)                            # borra las terminadas y su cuaderno
 ```
 
-Las tres rechazan una ejecución que un trabajador esté corriendo en ese momento. Volver a correr ejecuta el paso
-elegido y los siguientes con tickets nuevos, así que vuelven a tener efecto; una original bloqueada pasa a
-`superseded`.
+`retry` le da intentos nuevos al paso que bloqueó la saga. Los pasos fallidos que la receta ya resolvió siguen
+fallidos: si Stripe falló y la receta cobró con PayPal, un retry nunca vuelve a correr Stripe.
+
+Volver a correr (`<id>~rerun-<aleatorio>`) conserva los pasos anteriores al elegido, incluidos los fallidos y las
+ramas en paralelo, y ejecuta el paso elegido y los siguientes con tickets nuevos, así que vuelven a tener efecto. Una
+original bloqueada pasa a `superseded`.
+
+Ninguna toca una ejecución que un trabajador esté corriendo. `compensate` rechaza una ejecución `running` aunque su
+lease haya vencido: el trabajador puede seguir dentro de un paso lento, y si murió, el barrendero la retoma.
 
 ## Pruebas: el probador de apagones
 
@@ -734,6 +765,15 @@ ningún pedido se le cobró dos veces.
 - Un bug nunca deshace una saga: un error en el código la bloquea hasta que lo arreglas y llamas a
   `ActiveDurable.retry`.
 - Las sagas no se aíslan entre sí: dos sagas pueden ver los estados intermedios de la otra.
+- `Durable.start(id:)` es idempotente mientras la ejecución exista. Después de la limpieza (`keep_finished_for`,
+  30 días), el mismo id empieza una saga nueva con los mismos tickets: guarda las terminadas más tiempo del que un
+  webhook puede tardar en llegar otra vez.
+- El lease se renueva en cada escritura del cuaderno. Un paso que dura más que `lease_duration` puede correr dos
+  veces a la vez, con el mismo ticket. Mantén sincronizados los relojes de los trabajadores (NTP): el lease compara
+  horas escritas por máquinas distintas.
+- Los mensajes de error se guardan en el cuaderno y llegan al dashboard, a los logs, al evento `blocked` y a
+  OpenTelemetry: no pongas en ellos secretos ni datos personales.
+- Los ids no pueden estar vacíos ni tener `/`. Los ids y los nombres de paso se comparan exactos, también en MySQL.
 - `flow.transaction` es atómico solo si el cuaderno vive en la misma base de datos que tus datos.
 
 ## Desarrollo
