@@ -103,6 +103,25 @@ RSpec.describe "flow.sleep and flow.wait_for" do
     expect { Durable.signal(id, :late) }.to raise_error(ActiveDurable::Error, /already finished \(compensated\)/)
   end
 
+  it "waits again, with a new deadline, after a timeout past the pivot is retried" do
+    ActiveDurable.config.after_pivot_attempts = 1
+    Durable.define(:ship) do |flow|
+      flow.pivot(:dispatch) { 1 }
+      flow.wait_for(:delivered, timeout: 1.day)
+    end
+    id = drain(Durable.start(:ship).id).tap { |execution| expect(execution.status).to eq("blocked") }.id
+
+    Durable.retry(id)
+    ActiveDurable::Runner.run(id)
+
+    expect(notebook(id)["delivered"].status).to eq("waiting")
+    expect(ActiveDurable::Execution.find(id).wake_at).to be_present
+    ActiveDurable.enqueue_disabled = true
+    Durable.signal(id, :delivered, "at" => "door")
+    ActiveDurable::Testing.travel(ActiveDurable.config.sweep_grace + 1)
+    expect(ActiveDurable::Sweeper.due).to include(id)
+  end
+
   describe "a signal nobody is waiting for: a duplicate webhook, or one for a later step" do
     before do
       Durable.define(:loan) do |flow|

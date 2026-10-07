@@ -2,6 +2,10 @@
 
 # ActiveDurable 0.7: MySQL compared ids and step names ignoring case and accents, so "order-abc" and "order-ÁBC"
 # shared one saga. These columns now compare byte by byte, as on PostgreSQL and SQLite. Elsewhere it does nothing.
+#
+# On MySQL it rebuilds the three tables and blocks writes to them while it runs: run it at a quiet time, or prune
+# first. MySQL cannot roll DDL back, so if it stops halfway, run it again: it finishes the columns and puts the
+# foreign keys back.
 class MakeActiveDurableIdsCaseSensitive < ActiveRecord::Migration<%= migration_version %>
   COLUMNS = {
     durable_executions: %w[id forked_from],
@@ -27,25 +31,37 @@ class MakeActiveDurableIdsCaseSensitive < ActiveRecord::Migration<%= migration_v
       connection.columns(table).select { |column| names.include?(column.name) && column.collation != wanted }
                 .map { |column| [table, column, wanted] }
     end
-    return if changes.empty?
 
     # Both ends of a foreign key must share a collation, so the keys come off while the columns change.
-    without_foreign_keys do
-      changes.each do |table, column, collation|
-        change_column table, column.name, :string, limit: column.limit, null: column.null, collation: collation
-      end
+    on_delete = remove_foreign_keys if changes.any?
+    changes.each do |table, column, collation|
+      change_column table, column.name, :string, limit: column.limit, null: column.null, collation: collation
+    end
+    restore_foreign_keys(on_delete || {})
+  end
+
+  FOREIGN_KEY_TABLES = %i[durable_steps durable_signals].freeze
+
+  def foreign_key(table)
+    connection.foreign_keys(table).find { |key| key.column == "execution_id" }
+  end
+
+  def remove_foreign_keys
+    FOREIGN_KEY_TABLES.each_with_object({}) do |table, on_delete|
+      key = foreign_key(table)
+      next unless key
+
+      on_delete[table] = key.options[:on_delete]
+      remove_foreign_key table, column: :execution_id
     end
   end
 
-  def without_foreign_keys
-    keys = %i[durable_steps durable_signals].filter_map do |table|
-      key = connection.foreign_keys(table).find { |foreign_key| foreign_key.column == "execution_id" }
-      [table, key.options[:on_delete]] if key
-    end
-    keys.each { |table, _| remove_foreign_key table, column: :execution_id }
-    yield
-    keys.each do |table, on_delete|
-      add_foreign_key table, :durable_executions, column: :execution_id, on_delete: on_delete
+  # Also puts back keys that an earlier run, stopped halfway, left off.
+  def restore_foreign_keys(on_delete)
+    FOREIGN_KEY_TABLES.each do |table|
+      next if foreign_key(table)
+
+      add_foreign_key table, :durable_executions, column: :execution_id, on_delete: on_delete.fetch(table, :cascade)
     end
   end
 

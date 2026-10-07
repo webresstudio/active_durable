@@ -213,7 +213,7 @@ module ActiveDurable
       signal = SignalRecord.next_for(execution_id, name)
       return consume_signal(signal, name, position).deep_dup if signal
 
-      if entry.nil?
+      unless entry&.waiting? # first time here, or retried after a timeout: wait again, with a new deadline
         deadline = timeout && (now + timeout)
         @notebook.wait!(name, kind: "wait", position: position, wake_at: deadline)
         @runner.suspend!(deadline, "waiting")

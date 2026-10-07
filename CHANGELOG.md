@@ -11,7 +11,8 @@ Fixes from an architecture and security review. Most of them stop a saga from pa
 thing.
 
 Upgrading from 0.6: `bin/rails generate active_durable:upgrade && bin/rails db:migrate`. The new migration only
-changes MySQL databases. Note the behavior changes below: more errors block instead of undoing, `retry` no longer
+changes MySQL databases: it rebuilds the three tables and blocks writes to them while it runs, so run it at a quiet
+time, or prune first. Note the behavior changes below: more errors block instead of undoing, `retry` no longer
 resets every failed step, rerun ids are random, and `Durable.start` refuses some ids.
 
 ### Changed

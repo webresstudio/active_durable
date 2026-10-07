@@ -62,6 +62,13 @@ RSpec.describe ActiveDurable::Generators::UpgradeGenerator do
     expect(connection.foreign_keys(:durable_steps).map(&:column)).to eq(["execution_id"])
     expect(connection.foreign_keys(:durable_signals).map(&:column)).to eq(["execution_id"])
     expect(connection.foreign_keys(:durable_steps).first.on_delete).to eq(:cascade)
+
+    # MySQL cannot roll DDL back: a run that died halfway left the keys off. Running it again puts them back.
+    if TestDatabase.adapter.start_with?("mysql", "trilogy")
+      connection.remove_foreign_key(:durable_signals, column: :execution_id)
+      migration.new.migrate(:up)
+      expect(connection.foreign_keys(:durable_signals).map(&:column)).to eq(["execution_id"])
+    end
   ensure
     TestDatabase.load_schema!
   end
