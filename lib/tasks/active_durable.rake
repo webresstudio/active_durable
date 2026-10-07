@@ -19,6 +19,7 @@ namespace :active_durable do
   desc "Delete finished executions older than config.keep_finished_for, with their notebook (run it daily)"
   task prune: :environment do
     days = (ActiveDurable.config.keep_finished_for.to_f / 86_400).round(2)
+    days = days.to_i if days == days.to_i
     puts "ActiveDurable: deleted #{ActiveDurable.prune} finished execution(s) older than #{days} days"
   end
 
