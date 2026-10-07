@@ -7,6 +7,14 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-06
+
+Usable in a real app: found by a first-time user's walkthrough, plus hooks, cleanup, upgrades and an API reference.
+
+Upgrading from 0.5: `bin/rails generate active_durable:upgrade && bin/rails db:migrate`. Note the behavior change
+below: a plain exception raised by a recipe now blocks the saga instead of undoing it; use `flow.abort!` for business
+rejections.
+
 ### Added
 
 - `flow.on(:completed) { ... }` and `flow.on(:compensated) { ... }`: hooks to update your own records when a saga
