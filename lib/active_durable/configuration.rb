@@ -39,6 +39,19 @@ module ActiveDurable
     # development and test only: closed in production, staging and any other environment.
     attr_accessor :dashboard_authorize
 
+    # Errors that mean the code is wrong, not the outside world. A step that raises one of them is neither retried
+    # nor undone: the execution is blocked until the code is fixed and someone calls ActiveDurable.retry. Classes
+    # or class names; a name also matches subclasses and needs no loaded gem. Add your own with
+    # `config.code_errors << "Payments::Misconfigured"`, or drop one with `config.code_errors -= ["ArgumentError"]`.
+    # Errors outside StandardError (LoadError, NotImplementedError, SystemStackError) always count as bugs.
+    attr_accessor :code_errors
+
+    # The default {#code_errors}. NameError covers NoMethodError, and IndexError covers KeyError.
+    DEFAULT_CODE_ERRORS = %w[
+      NameError ArgumentError TypeError IndexError FrozenError ZeroDivisionError RangeError
+      NoMatchingPatternError LocalJumpError RegexpError EncodingError
+    ].freeze
+
     attr_writer :logger
 
     def initialize
@@ -53,6 +66,7 @@ module ActiveDurable
       @parallel_concurrency = 4
       @clock = -> { Time.current }
       @dashboard_authorize = nil
+      @code_errors = DEFAULT_CODE_ERRORS.dup
       @logger = nil
     end
 

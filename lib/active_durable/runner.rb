@@ -58,12 +58,16 @@ module ActiveDurable
       block!(e)
     rescue StandardError => e
       fail!(e)
+    rescue ScriptError, SystemStackError => e # LoadError, NotImplementedError: bugs that StandardError misses
+      block!(@flow&.blocked_by || e)
     end
 
     # Only a step that failed for good (StepFailed) or a business rejection (Abort) undoes the saga. Anything else
     # the recipe raises is a bug: the execution is blocked, so fixing the code and calling ActiveDurable.retry
-    # carries it forward instead of refunding customers.
+    # carries it forward instead of refunding customers. A step that hit a bug blocks the run even if the recipe
+    # rescued its error.
     def fail!(error)
+      return block!(@flow.blocked_by) if @flow&.blocked_by
       return block!(error) if @flow.nil? || @flow.pivoted? || !compensates?(error)
 
       start_compensation!(error) unless @flow.compensating?
@@ -131,7 +135,7 @@ module ActiveDurable
         end
       end
       ActiveDurable.crash_point(:after_hook_record, name)
-    rescue StandardError => e
+    rescue StandardError, ScriptError, SystemStackError => e
       raise if e.is_a?(HookFailed)
 
       raise HookFailed.new(event, e)
@@ -154,7 +158,7 @@ module ActiveDurable
         end
       end
       ActiveDurable.crash_point(:after_undo_record, entry.name)
-    rescue StandardError => e
+    rescue StandardError, ScriptError, SystemStackError => e
       retry_undo!(entry, name, record, e)
     end
 
@@ -172,13 +176,19 @@ module ActiveDurable
       notebook.complete!(name, kind: "undo", position: nil, result: nil)
     end
 
+    # An undo is retried until config.undo_attempts, then the execution is blocked. A bug blocks it at once.
     def retry_undo!(entry, name, record, error)
       attempts = (record&.attempts || 0) + 1
       dumped = ActiveDurable.dump_error(error, step: name)
       max = ActiveDurable.config.undo_attempts
+      if ActiveDurable.code_error?(error)
+        notebook.fail!(name, kind: "undo", position: nil, attempts: attempts, error: dumped)
+        raise UndoFailed.new("undo of :#{entry.name} cannot run: #{error.class}: #{error.message}", step_name: name)
+      end
       if attempts >= max
         notebook.fail!(name, kind: "undo", position: nil, attempts: attempts, error: dumped)
-        raise UndoFailed, "undo of :#{entry.name} failed #{attempts} times (#{error.class}: #{error.message})"
+        raise UndoFailed.new("undo of :#{entry.name} failed #{attempts} times (#{error.class}: #{error.message})",
+                             step_name: name)
       end
 
       wake_at = ActiveDurable.now + RetryPolicy.new(attempts: max).delay(attempts)

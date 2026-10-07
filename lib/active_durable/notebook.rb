@@ -48,6 +48,11 @@ module ActiveDurable
                    wake_at: nil)
     end
 
+    # The step hit a bug or its result could not be recorded: it runs again after ActiveDurable.retry.
+    def block!(name, kind:, position:, attempts:, error:)
+      write!(name, kind: kind, position: position, status: "blocked", attempts: attempts, error: error, wake_at: nil)
+    end
+
     def wait!(name, kind:, position:, wake_at:)
       write!(name, kind: kind, position: position, status: "waiting", wake_at: wake_at)
     end

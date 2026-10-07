@@ -23,6 +23,11 @@ module ActiveDurable
       status == "retrying"
     end
 
+    # It hit a bug, or its result could not be recorded. It runs again when the execution is retried.
+    def blocked?
+      status == "blocked"
+    end
+
     def waiting?
       status == "waiting"
     end

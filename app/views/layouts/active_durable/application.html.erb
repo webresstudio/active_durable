@@ -33,7 +33,7 @@
     .tone-good, .st-completed { --c: var(--jade); --cb: var(--jade-bg); }
     .tone-wait, .st-retrying, .st-waiting, .st-sleeping { --c: var(--amber); --cb: var(--amber-bg); }
     .tone-busy, .st-running, .st-next { --c: var(--cobalt); --cb: var(--cobalt-bg); }
-    .tone-bad, .st-failed { --c: var(--ruby); --cb: var(--ruby-bg); }
+    .tone-bad, .st-failed, .st-blocked { --c: var(--ruby); --cb: var(--ruby-bg); }
     .tone-undo, .st-undone { --c: var(--violet); --cb: var(--violet-bg); }
     .tone-muted { --c: var(--slate); --cb: var(--slate-bg); }
 
@@ -140,7 +140,7 @@
                animation-delay: calc(var(--i, 0) * 45ms); }
     .mini .b.st-completed { background: var(--c); }
     .mini .b.k-pivot { transform: rotate(45deg) scale(.86); animation-name: pop-pivot; }
-    .mini .b.st-failed { animation: pop .35s both, shake .5s .5s ease 2; }
+    .mini .b.st-failed, .mini .b.st-blocked { animation: pop .35s both, shake .5s .5s ease 2; }
     .mini .b.st-undone { background: repeating-linear-gradient(135deg, var(--cb) 0 3px, var(--c) 3px 5px); }
     .mini .b.st-next { border-style: dashed; background: transparent; animation: pop .35s both, beat 1.2s ease-in-out infinite; }
     .mini .b.st-retrying, .mini .b.st-sleeping { animation: pop .35s both, beat 2.2s ease-in-out infinite; }
@@ -194,7 +194,7 @@
     .block.st-completed { --cb: color-mix(in srgb, var(--jade-bg) 85%, var(--surface)); }
     .block.k-pivot { border-width: 3px; }
     .block.k-pivot .kind { color: var(--amber); }
-    .block.st-failed { animation: drop .55s both, shake .5s .7s ease 2; box-shadow: 0 7px 0 var(--c2), 0 0 0 6px color-mix(in srgb, var(--ruby) 18%, transparent); }
+    .block.st-failed, .block.st-blocked { animation: drop .55s both, shake .5s .7s ease 2; box-shadow: 0 7px 0 var(--c2), 0 0 0 6px color-mix(in srgb, var(--ruby) 18%, transparent); }
     .block.st-undone { background: repeating-linear-gradient(135deg, var(--violet-bg) 0 10px, color-mix(in srgb, var(--violet) 22%, var(--violet-bg)) 10px 20px); }
     .block.st-undone h3 { text-decoration: line-through; text-decoration-thickness: 2px; }
     .block.st-next { background: transparent; border-style: dashed; box-shadow: none; animation: drop .55s both, beat 1.4s ease-in-out infinite; }

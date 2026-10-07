@@ -77,6 +77,12 @@ module ActiveDurable
 
       def run_parallel(name, position, branches)
         outcomes = branch_outcomes(branches)
+        blocked = outcomes.find { |_, (state, _)| state == :blocked }
+        if blocked
+          @blocked_by = blocked.last.last
+          raise @blocked_by
+        end
+
         failed = outcomes.select { |_, (state, _)| state == :failed }
         if failed.any?
           full_name, (_, error) = failed.first
@@ -95,7 +101,7 @@ module ActiveDurable
         results.deep_dup
       end
 
-      # { full_name => [:completed, result] | [:retry, wake_at] | [:failed, error] }
+      # { full_name => [:completed, result] | [:retry, wake_at] | [:failed, error] | [:blocked, error] }
       def branch_outcomes(branches)
         outcomes = {}
         runnable = []
@@ -171,12 +177,22 @@ module ActiveDurable
         end
         ActiveDurable.crash_point(:after_record, branch.full_name)
         [:completed, result]
-      rescue NotSerializable, InvalidRecipe
-        raise
-      rescue NameError => e
-        raise CodeError.new(branch.full_name, e)
-      rescue StandardError => e
+      rescue Abort => e
         branch_failure(branch, entry, e)
+      rescue NotSerializable, InvalidRecipe, CheckpointFailed => e
+        block_branch(branch, entry, e)
+      rescue StandardError, ScriptError, SystemStackError => e
+        return block_branch(branch, entry, CodeError.new(branch.full_name, e)) if ActiveDurable.code_error?(e)
+
+        branch_failure(branch, entry, e)
+      end
+
+      # Like block_step!, from inside a branch thread: the run blocks once every branch has finished.
+      def block_branch(branch, entry, error)
+        error.step_name ||= branch.full_name if error.respond_to?(:step_name=)
+        @notebook.block!(branch.full_name, kind: branch.kind, position: nil, attempts: entry&.attempts || 0,
+                                           error: ActiveDurable.dump_error(error, step: branch.full_name))
+        [:blocked, error]
       end
 
       def branch_failure(branch, entry, error)

@@ -109,7 +109,8 @@ module ActiveDurable
 
     def state_word(state)
       {
-        "completed" => "done", "failed" => "failed", "retrying" => "retrying", "waiting" => "waiting for a signal",
+        "completed" => "done", "failed" => "failed", "blocked" => "blocked", "retrying" => "retrying",
+        "waiting" => "waiting for a signal",
         "sleeping" => "sleeping", "undone" => "undone", "next" => "up next", "running" => "running"
       }.fetch(state.to_s, state.to_s)
     end

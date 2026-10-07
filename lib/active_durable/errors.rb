@@ -18,7 +18,10 @@ module ActiveDurable
   class RecipeChanged < Error; end
 
   # A step returned something that cannot be stored in the notebook as JSON.
-  class NotSerializable < Error; end
+  class NotSerializable < Error
+    # @api private
+    attr_accessor :step_name
+  end
 
   # Raise it inside a step to reject the work for a business reason: no retries, straight to compensation.
   class Abort < Error; end
@@ -37,8 +40,15 @@ module ActiveDurable
     end
   end
 
-  # An undo kept failing after all its attempts. The execution is blocked for a human to review.
-  class UndoFailed < Error; end
+  # An undo kept failing after all its attempts, or hit a bug. The execution is blocked for a human to review.
+  class UndoFailed < Error
+    attr_reader :step_name
+
+    def initialize(message = nil, step_name: nil)
+      @step_name = step_name
+      super(message)
+    end
+  end
 
   # A flow.on(:completed) or flow.on(:compensated) hook raised. The execution is blocked; ActiveDurable.retry runs
   # the hook again once it is fixed.
@@ -51,15 +61,27 @@ module ActiveDurable
     end
   end
 
-  # A step whose code cannot run as written: it raised NameError or NoMethodError (a typo, a missing class or
-  # method). Retrying cannot fix it and undoing the saga would punish customers for a bug, so the execution is
-  # blocked until the code is fixed and someone calls ActiveDurable.retry.
+  # A step whose code cannot run as written: it raised one of {Configuration#code_errors} (a typo, a missing
+  # key, a wrong argument). Retrying cannot fix it and undoing the saga would punish customers for a bug, so the
+  # execution is blocked until the code is fixed and someone calls ActiveDurable.retry. Rescuing it in the recipe
+  # does not help: the saga stops at the next step and blocks anyway.
   class CodeError < Error
     attr_reader :step_name
 
     def initialize(step_name, error)
       @step_name = step_name
       super("step :#{step_name} cannot run: #{error.class}: #{error.message}")
+    end
+  end
+
+  # A step ran, but the database refused to record its result. Running it again could repeat its effect and
+  # undoing the saga would skip it, so the execution is blocked at that step.
+  class CheckpointFailed < Error
+    attr_reader :step_name
+
+    def initialize(step_name, error)
+      @step_name = step_name
+      super("step :#{step_name} ran, but its result could not be recorded: #{error.class}: #{error.message}")
     end
   end
 
@@ -79,13 +101,36 @@ module ActiveDurable
   # @api private
   class StopForward < ControlFlow; end
 
-  # Serializes an exception for the notebook and the dashboard.
+  # Serializes an exception for the notebook and the dashboard. The message is cleaned up first: it may quote the
+  # very bytes the database refused.
   def self.dump_error(error, step: nil)
     {
       "class" => error.class.name,
-      "message" => error.message.to_s[0, 2000],
+      "message" => storable_text(error.message)[0, 2000],
       "step" => step,
       "at" => now.utc.iso8601(6)
     }.compact
+  end
+
+  # Whether an error means the code is wrong rather than the outside world: it is one of config.code_errors (or a
+  # subclass), or one of the errors Ruby raises outside StandardError, such as LoadError or SystemStackError.
+  #
+  # @api private
+  def self.code_error?(error)
+    return true unless error.is_a?(StandardError)
+
+    names = config.code_errors.map { |item| item.is_a?(Module) ? item.name : item.to_s }
+    error.class.ancestors.any? { |ancestor| names.include?(ancestor.name) }
+  end
+
+  # @api private
+  def self.storable_text(text)
+    text = text.to_s
+    text = if [Encoding::UTF_8, Encoding::BINARY, Encoding::US_ASCII].include?(text.encoding)
+             text.dup.force_encoding(Encoding::UTF_8).scrub("?")
+           else
+             text.encode(Encoding::UTF_8, invalid: :replace, undef: :replace, replace: "?")
+           end
+    text.delete("\u0000")
   end
 end

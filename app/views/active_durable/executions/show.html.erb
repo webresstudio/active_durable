@@ -65,7 +65,7 @@
         <% items.each_with_index do |item, index| %>
           <% if index.positive? %>
             <% previous = items[index - 1] %>
-            <% if previous.kind == "pivot" && previous.state != "failed" %>
+            <% if previous.kind == "pivot" && !%w[failed blocked].include?(previous.state) %>
               <span class="gate" style="--i: <%= index %>"><span>point of no return</span></span>
             <% end %>
             <% wire = if item.state == "undone" || (backwards && previous.state == "undone") then "back"

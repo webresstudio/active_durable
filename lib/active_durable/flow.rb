@@ -32,6 +32,12 @@ module ActiveDurable
     # @api private
     attr_reader :undo_stack
 
+    # The bug (or unrecorded result) that stopped this run. Once set, no other step runs and the execution is
+    # blocked, even if the recipe rescued the error.
+    #
+    # @api private
+    attr_reader :blocked_by
+
     # @api private
     def initialize(runner, compensating:)
       @runner = runner
@@ -43,6 +49,7 @@ module ActiveDurable
       @seen = {}
       @undo_stack = []
       @hooks = {}
+      @blocked_by = nil
     end
 
     # @return [String] the id of the execution this recipe is running for
@@ -226,6 +233,7 @@ module ActiveDurable
     #
     # @api private
     def finish!
+      raise blocked_by if blocked_by
       return if compensating?
 
       missing = @notebook.forward_entries.reject { |entry| @seen.key?(entry.name) }
@@ -287,19 +295,42 @@ module ActiveDurable
       end
       ActiveDurable.crash_point(:after_record, name)
       result
-    rescue NotSerializable, InvalidRecipe
-      raise
-    rescue NameError => e # NoMethodError too: a bug in the code, not a failure of the outside world
-      raise CodeError.new(name, e)
-    rescue StandardError => e
+    rescue Abort => e
+      handle_failure(name, kind, position, entry, undo, options, e)
+    rescue NotSerializable, InvalidRecipe, CheckpointFailed => e
+      block_step!(name, kind, position, entry, e)
+    rescue StandardError, ScriptError, SystemStackError => e
+      raise if blocked_by # a nested step already blocked the run
+
+      return block_step!(name, kind, position, entry, CodeError.new(name, e)) if ActiveDurable.code_error?(e)
+
       handle_failure(name, kind, position, entry, undo, options, e)
     end
 
+    # Outside a transaction the step has already acted when its result is recorded, so a write the database
+    # refuses is not a failure of the step: it blocks. Inside flow.transaction it rolled back with the step.
     def record_result(name, kind, position, value)
       result = Serializer.normalize(value, "the result of :#{name}")
       ActiveDurable.crash_point(:after_call, name)
-      @notebook.complete!(name, kind: kind, position: position, result: result)
+      begin
+        @notebook.complete!(name, kind: kind, position: position, result: result)
+      rescue StandardError => e
+        raise if kind == "transaction"
+
+        raise CheckpointFailed.new(name, e)
+      end
       result
+    end
+
+    # Retrying cannot fix a bug and undoing the saga would punish customers for it: the step is written down as
+    # blocked, and nothing else runs until someone fixes the code and calls ActiveDurable.retry. It keeps its
+    # attempts, since a bug is not a failure of the outside world.
+    def block_step!(name, kind, position, entry, error)
+      error.step_name ||= name if error.respond_to?(:step_name=)
+      @blocked_by = error
+      @notebook.block!(name, kind: kind, position: position, attempts: entry&.attempts || 0,
+                             error: ActiveDurable.dump_error(error, step: name))
+      raise error
     end
 
     def handle_failure(name, kind, position, entry, undo, options, error)
@@ -348,6 +379,8 @@ module ActiveDurable
     end
 
     def visit!(name, kind)
+      raise blocked_by if blocked_by
+
       name = name.to_s
       raise InvalidRecipe, "step names cannot be blank" if name.empty?
       raise InvalidRecipe, "step names cannot end in ':undo' (#{name})" if name.end_with?(":undo")
