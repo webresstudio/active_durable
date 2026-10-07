@@ -2,6 +2,7 @@
 
 # Error classes. Everything a recipe may want to rescue inherits from ActiveDurable::Error.
 module ActiveDurable
+  # The base class of every error ActiveDurable raises.
   class Error < StandardError; end
 
   # Raised when a recipe name (or version) has not been defined.
@@ -64,12 +65,18 @@ module ActiveDurable
 
   # Control flow signals. They inherit from Exception on purpose: a `rescue => e` inside
   # user code must not swallow them, otherwise a lost lease could keep writing.
+  #
+  # @api private
   class ControlFlow < Exception; end # rubocop:disable Lint/InheritException
 
   # Another worker took over this execution (our lease expired). Stop without writing anything else.
+  #
+  # @api private
   class LeaseLost < ControlFlow; end
 
   # While compensating, replay reached a step that never completed: stop moving forward.
+  #
+  # @api private
   class StopForward < ControlFlow; end
 
   # Serializes an exception for the notebook and the dashboard.

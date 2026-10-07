@@ -7,6 +7,8 @@ module ActiveDurable
   # lease. The claim writes a fresh random token. Every later write (notebook entries, status changes)
   # is conditional on that token still being there, so a worker whose lease expired and was taken over
   # cannot write anything else: its writes raise LeaseLost and it stops.
+  #
+  # @api private
   class Lease
     attr_reader :execution_id, :token
 

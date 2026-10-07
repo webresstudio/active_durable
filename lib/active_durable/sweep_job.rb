@@ -5,6 +5,9 @@ module ActiveDurable
   class SweepJob < ActiveJob::Base
     queue_as { ActiveDurable.config.queue_name }
 
+    # Enqueues the executions that should be running but have no job.
+    #
+    # @return [void]
     def perform
       Sweeper.call
     end

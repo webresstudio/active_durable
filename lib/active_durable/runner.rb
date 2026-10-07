@@ -3,6 +3,8 @@
 module ActiveDurable
   # Runs one execution as far as it can go: claims the lease, replays the recipe against the notebook,
   # and ends by completing, suspending (sleep, wait, retry), compensating or blocking.
+  #
+  # @api private
   class Runner
     SUSPEND = :active_durable_suspend
 

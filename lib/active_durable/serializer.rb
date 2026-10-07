@@ -4,6 +4,8 @@ module ActiveDurable
   # Step results, inputs and signal payloads live in the notebook as JSON. This module turns a value
   # into exactly what a later replay will read back (string keys, no symbols), so the first run and a
   # replay behave the same. Anything that is not plain JSON is rejected with a message that says where.
+  #
+  # @api private
   module Serializer
     module_function
 

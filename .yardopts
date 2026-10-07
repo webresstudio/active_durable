@@ -1,0 +1,8 @@
+--markup markdown
+--readme README.md
+--title "ActiveDurable"
+--no-private
+--hide-api private
+lib/**/*.rb
+-
+CHANGELOG.md

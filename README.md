@@ -22,7 +22,8 @@
   <a href="#the-building-blocks">Building blocks</a> ·
   <a href="#dashboard">Dashboard</a> ·
   <a href="#testing-the-crash-tester">Crash tester</a> ·
-  <a href="#compatibility">Compatibility</a>
+  <a href="#compatibility">Compatibility</a> ·
+  <a href="https://rubydoc.info/gems/active_durable">API reference</a>
 </p>
 
 ---

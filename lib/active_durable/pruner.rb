@@ -3,6 +3,8 @@
 module ActiveDurable
   # Deletes finished executions (completed, compensated, superseded) older than a cutoff, with their notebook and
   # their signals. Active and blocked executions are never touched: they still need a worker or a person.
+  #
+  # @api private
   module Pruner
     FINISHED = %w[completed compensated superseded].freeze
 

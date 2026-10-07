@@ -5,8 +5,13 @@ module ActiveDurable
   class Execution < Record
     self.table_name = "durable_executions"
 
+    # Statuses of an execution that will move on by itself: waiting for a worker, running, sleeping until a
+    # wake-up time (a sleep or a retry) or waiting for a signal.
     ACTIVE = %w[pending running sleeping waiting].freeze
+    # Statuses where nothing happens without a person: done, undone, blocked (needs {ActiveDurable.retry},
+    # {ActiveDurable.compensate} or a fix), or replaced by a rerun.
     TERMINAL = %w[completed compensated blocked superseded].freeze
+    # Every status.
     STATUSES = (ACTIVE + TERMINAL).freeze
 
     attribute :input, JSON_TYPE, default: -> { {} }
@@ -27,10 +32,12 @@ module ActiveDurable
     # the sweeper finds the pending row and enqueues it.
     after_create_commit { ActiveDurable.enqueue(id) }
 
+    # @return [Boolean] whether it will move on by itself
     def active?
       ACTIVE.include?(status)
     end
 
+    # @return [Boolean] whether it needs a person to move again, or finished
     def terminal?
       TERMINAL.include?(status)
     end

@@ -17,6 +17,8 @@ All notable changes to this project are documented here. The format follows
 - Cleanup: `ActiveDurable.prune(older_than:)`, `ActiveDurable::PruneJob` and `bin/rails active_durable:prune` delete
   finished executions (completed, compensated, superseded) older than `config.keep_finished_for` (30 days by
   default), with their notebook and signals, in batches. Active and blocked executions are never deleted.
+- An API reference: the public API has YARD docs (parameters, returns, errors, examples) and the internals are
+  marked `@api private`, so rubydoc.info shows only what an app calls. `.yardopts` configures it.
 - `bin/rails generate active_durable:upgrade` adds the migrations a newer version needs, skipping the ones the app
   already has. The first one is an index on `durable_executions (status, updated_at)` for the cleanup and the
   sweeper; new installs get it from `active_durable:install`.

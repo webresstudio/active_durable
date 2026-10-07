@@ -4,6 +4,8 @@ module ActiveDurable
   # The safety net. Finds executions that should be running but have no job: the process died between
   # the commit and the enqueue, a timer job was lost, or a worker crashed and its lease expired.
   # Enqueuing twice is harmless: only one worker can claim the lease.
+  #
+  # @api private
   module Sweeper
     module_function
 

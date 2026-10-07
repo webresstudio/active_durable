@@ -18,6 +18,7 @@ module ActiveDurable
       # In the order they were released. Never edit one that shipped: add a new one.
       MIGRATIONS = %w[add_active_durable_prune_index].freeze
 
+      # @api private
       def create_migration_files
         MIGRATIONS.each do |name|
           if self.class.migration_exists?(File.join(destination_root, "db/migrate"), name)

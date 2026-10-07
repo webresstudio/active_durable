@@ -13,20 +13,35 @@ module ActiveDurable
   #   end
   #   results # => { "MEX" => {...}, "GDL" => {...} }
   class ParallelGroup
+    # @api private
     Branch = Struct.new(:name, :full_name, :kind, :undo, :options, :block)
+    # @api private
     OPTIONS = %i[retry undo_on_failure].freeze
 
+    # @api private
     attr_reader :branches
 
+    # @api private
     def initialize(parallel_name)
       @parallel_name = parallel_name
       @branches = []
     end
 
+    # A branch that talks to the outside world, like {Flow#step}.
+    #
+    # @param name [Symbol, String] unique in this parallel block
+    # @param undo [#call, nil]
+    # @param options [Hash] `retry:` and `undo_on_failure:`
+    # @yieldparam ticket [String]
+    # @return [void]
     def step(name, undo: nil, **options, &block)
       add(name, "step", undo, options, block)
     end
 
+    # A branch that only touches your own database, like {Flow#transaction}.
+    #
+    # @param (see #step)
+    # @return [void]
     def transaction(name, undo: nil, **options, &block)
       add(name, "transaction", undo, options, block)
     end

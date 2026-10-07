@@ -57,6 +57,7 @@ module ActiveDurable
       end.unshift(discovery)
     end
 
+    # @api private
     def crash_at(recipe, input, hit_number, signals)
       id = start_quietly(recipe, input)
       hits = 0
@@ -72,6 +73,9 @@ module ActiveDurable
       drain(id, signals: signals)
     end
 
+    # Starts an execution without enqueuing its job, so a test drives it with {drain}.
+    #
+    # @return [String] the execution id
     def start_quietly(recipe, input)
       previous = ActiveDurable.enqueue_disabled
       ActiveDurable.enqueue_disabled = true
@@ -80,6 +84,7 @@ module ActiveDurable
       ActiveDurable.enqueue_disabled = previous
     end
 
+    # @api private
     def with_crash_hook(hook)
       previous = ActiveDurable.crash_hook
       ActiveDurable.crash_hook = hook
@@ -89,6 +94,8 @@ module ActiveDurable
     end
 
     # Decides what has to happen before the next run. Returns false when nothing can move the execution.
+    #
+    # @api private
     def ready_for_next_run?(execution, signals)
       now = ActiveDurable.now
       if execution.locked_until && execution.locked_until > now
@@ -101,6 +108,7 @@ module ActiveDurable
       true
     end
 
+    # @api private
     def waiting_can_move?(execution, signals, now)
       return true if SignalRecord.pending.exists?(execution_id: execution.id)
 

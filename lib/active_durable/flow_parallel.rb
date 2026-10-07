@@ -9,6 +9,21 @@ module ActiveDurable
     # a crash only the unfinished branches run again. If a branch runs out of attempts, the saga compensates the
     # branches that completed (last finished, first undone) and every step before the parallel block.
     module Parallel
+      # Runs several steps at the same time. Declare the branches on the group the block receives; they run
+      # after the block returns.
+      #
+      # @param name [Symbol, String]
+      # @yieldparam branches [ParallelGroup]
+      # @return [Hash{String => Object}] each branch's result by branch name
+      # @raise [StepFailed] when a branch runs out of attempts
+      # @example
+      #   flow.parallel(:reserve) do |branches|
+      #     warehouses.each do |warehouse|
+      #       branches.step(warehouse.code, undo: ->(r, ticket) { warehouse.release(r["id"], key: ticket) }) do |ticket|
+      #         { "id" => warehouse.reserve(order.items_for(warehouse), key: ticket) }
+      #       end
+      #     end
+      #   end
       def parallel(name, &block)
         raise InvalidRecipe, "flow.parallel :#{name} needs a block" unless block
 

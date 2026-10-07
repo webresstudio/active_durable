@@ -3,6 +3,8 @@
 module ActiveDurable
   # The notebook of one execution: every step that ran, what it returned and its state.
   # Loaded once per run; every write is fenced by the lease.
+  #
+  # @api private
   class Notebook
     def initialize(execution, lease)
       @execution = execution

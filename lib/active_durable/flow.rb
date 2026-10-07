@@ -1,22 +1,38 @@
 # frozen_string_literal: true
 
 module ActiveDurable
-  # The object a recipe receives. Every call that touches the outside world goes through it, so it can
-  # be checkpointed in the notebook and skipped on replay.
+  # The object a recipe receives. Every call that touches the outside world goes through it, so it can be
+  # checkpointed in the notebook and skipped when the recipe runs again after a crash.
   #
+  # Step names must be unique in a recipe: they are the steps' keys in the notebook. Every step takes the options
+  # `retry:` (an Integer of attempts, `false`, or `{ attempts:, backoff: }`) and, if it has an undo,
+  # `undo_on_failure: true`.
+  #
+  # @example
   #   Durable.define :checkout do |flow, order_id:|
-  #     flow.transaction :reserve_stock, undo: -> { ... } do ... end
-  #     flow.step :charge, undo: ->(charge, ticket) { ... } do |ticket| ... end
-  #     flow.pivot(:ship) { |ticket| ... }
-  #     flow.step(:email) { ... }
+  #     order = Order.find(order_id)
+  #     flow.on(:compensated) { order.update!(status: "cancelled") }
+  #     flow.transaction :reserve_stock, undo: -> { order.release_stock! } do
+  #       order.reserve_stock!
+  #     end
+  #     flow.step :charge, undo: ->(charge, ticket) { Payments.refund(charge, ticket) } do |ticket|
+  #       Payments.charge(order, ticket)
+  #     end
+  #     flow.pivot(:ship) { |ticket| Carrier.ship(order, reference: ticket) }
+  #     flow.step(:email) { OrderMailer.shipped(order).deliver_now && true }
   #   end
   class Flow
+    # @api private
     UndoEntry = Struct.new(:name, :kind, :result, :undo)
+    # @api private
     STEP_OPTIONS = %i[retry undo_on_failure].freeze
+    # The events {#on} accepts.
     HOOK_EVENTS = %i[completed compensated].freeze
 
+    # @api private
     attr_reader :undo_stack
 
+    # @api private
     def initialize(runner, compensating:)
       @runner = runner
       @notebook = runner.notebook
@@ -29,48 +45,89 @@ module ActiveDurable
       @hooks = {}
     end
 
+    # @return [String] the id of the execution this recipe is running for
     def execution_id
       @execution.id
     end
 
-    # The ticket (idempotency key) a step receives. It is the same every time the step runs.
+    # The ticket (idempotency key) a step receives: "<execution id>:<step name>". It is the same every time the
+    # step runs.
+    #
+    # @param name [Symbol, String]
+    # @return [String]
     def ticket_for(name)
       "#{execution_id}:#{name}"
     end
 
+    # @api private
     def compensating?
       @compensating
     end
 
+    # @api private
     def compensating!
       @compensating = true
     end
 
+    # @api private
     def pivoted?
       @pivoted
     end
 
-    # A step that talks to the outside world. It runs at most until it is recorded; pass the ticket to the
-    # service as its idempotency key so a repeat after a crash is recognised.
+    # A step that talks to the outside world. It runs until its result is recorded, so after a crash it may run
+    # again: pass the ticket to the service as its idempotency key, so the repeat is recognised.
+    #
+    # @param name [Symbol, String] unique in the recipe
+    # @param undo [#call, nil] how to undo it; receives (result, undo_ticket, step_ticket), as many as it declares
+    # @param options [Hash] `retry:` and `undo_on_failure:`
+    # @yieldparam ticket [String] the idempotency key of this step
+    # @yieldreturn [Object] the result, stored as JSON in the notebook
+    # @return [Object] the result, also when it was read from the notebook
+    # @raise [StepFailed] when it runs out of attempts or calls {#abort!}; rescue it to take another path
+    # @example
+    #   payment = flow.step :charge, undo: ->(charge, ticket) { Payments.refund(charge, ticket) } do |ticket|
+    #     Payments.charge(order, ticket)
+    #   end
     def step(name, undo: nil, **options, &block)
       run_step(name, "step", undo, options, block)
     end
 
-    # A step that only touches your own database. It runs in the same transaction that records it,
-    # so it happens exactly once.
+    # A step that only touches your own database. It runs in the same transaction that records it, so it happens
+    # exactly once. Its undo runs in a transaction too.
+    #
+    # @param (see #step)
+    # @yieldparam ticket [String]
+    # @yieldreturn [Object] the result, stored as JSON in the notebook
+    # @return [Object] the result
+    # @raise [StepFailed] when it runs out of attempts or calls {#abort!}
     def transaction(name, undo: nil, **options, &block)
       run_step(name, "transaction", undo, options, block)
     end
 
-    # The point of no return. Before it, failures are compensated; after it, steps are retried.
+    # The point of no return, such as shipping a parcel. Before it, a step that fails for good undoes the saga;
+    # after it, steps cannot declare an undo and are retried (config.after_pivot_attempts), then the execution is
+    # blocked for a person. If the pivot itself fails for good, the saga is undone: the point was never passed.
+    #
+    # @param name [Symbol, String]
+    # @param options [Hash] `retry:`
+    # @yieldparam ticket [String]
+    # @return [Object] the result
     def pivot(name, **options, &block)
       run_step(name, "pivot", nil, options, block)
     end
 
-    # Runs a block once the saga ends that way: flow.on(:completed) { ... } or flow.on(:compensated) { ... }, to
-    # update your own records (the order is paid, the order is cancelled). Declare hooks before the first step, so
-    # a saga undone at its first step still knows them. The block runs in a transaction together with the notebook
-    # entry that records it: a hook that only touches your database runs exactly once, even across crashes.
+    # Runs a block once the saga ends that way, to update your own records (the order is paid, the order is
+    # cancelled). Declare hooks before the first step, so a saga undone at its first step still knows them. The
+    # block runs in a transaction together with the notebook entry that records it: a hook that only touches your
+    # database runs exactly once, even across crashes. If it raises, the execution is blocked and
+    # {ActiveDurable.retry} runs it again.
+    #
+    # @param event [Symbol] :completed (after the last step) or :compensated (after the last undo)
+    # @return [nil]
+    # @raise [InvalidRecipe] after the first step, for another event, or twice for the same event
+    # @example
+    #   flow.on(:completed) { order.update!(status: "delivered") }
+    #   flow.on(:compensated) { order.update!(status: "cancelled") }
     def on(event, &block)
       raise InvalidRecipe, "flow.on needs a block" unless block
       unless HOOK_EVENTS.include?(event)
@@ -86,16 +143,33 @@ module ActiveDurable
       nil
     end
 
+    # @api private
     def hook(event)
       @hooks[event]
     end
 
-    # Rejects the saga for a business reason: no retries, straight to compensation.
+    # Rejects the saga for a business reason, such as a declined card: no retries, straight to undoing what was
+    # done. Call it inside a step or in the recipe itself.
+    #
+    # @param message [String] recorded as the error
+    # @raise [Abort] always
+    # @example
+    #   flow.step :charge do |ticket|
+    #     Payments.charge(order, ticket)
+    #   rescue Payments::CardDeclined => e
+    #     flow.abort!(e.message)
+    #   end
     def abort!(message)
       raise Abort, message
     end
 
-    # Waits without holding a worker: the wake-up time is written down and the execution is released.
+    # Waits without holding a worker: the wake-up time is written down and the execution is released until then.
+    #
+    # @param name [Symbol, String]
+    # @param duration [ActiveSupport::Duration, Numeric] seconds
+    # @return [nil]
+    # @example
+    #   flow.sleep(:wait_for_delivery, 3.days)
     def sleep(name, duration)
       name, position = visit!(name, "sleep")
       entry = @notebook[name]
@@ -115,7 +189,13 @@ module ActiveDurable
       @runner.suspend!(wake_at, "sleeping")
     end
 
-    # Waits for Durable.signal(execution_id, name, payload) and returns the payload.
+    # Waits, without holding a worker, for {ActiveDurable.signal}(execution_id, name, payload). A signal sent
+    # before the saga gets here is kept.
+    #
+    # @param name [Symbol, String]
+    # @param timeout [ActiveSupport::Duration, Numeric, nil] seconds; then the step fails and the saga is undone
+    # @return [Object] the signal's payload
+    # @raise [StepFailed] when the timeout passes first
     def wait_for(name, timeout: nil)
       name, position = visit!(name, "wait")
       entry = @notebook[name]
@@ -143,6 +223,8 @@ module ActiveDurable
     end
 
     # Called when the recipe returns: every step the notebook knows about must have been reached.
+    #
+    # @api private
     def finish!
       return if compensating?
 
@@ -154,6 +236,7 @@ module ActiveDurable
                            "#{missing.size == 1 ? "it" : "them"}. #{RECIPE_CHANGED_HINT}"
     end
 
+    # @api private
     RECIPE_CHANGED_HINT = "Either the recipe changed while this execution was in flight, or code outside a " \
                           "step read data that changed between runs. Keep reads that decide the path inside " \
                           "steps, or define a new recipe version."

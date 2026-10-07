@@ -22,7 +22,8 @@
   <a href="#las-piezas">Las piezas</a> ·
   <a href="#dashboard">Dashboard</a> ·
   <a href="#pruebas-el-probador-de-apagones">Probador de apagones</a> ·
-  <a href="#compatibilidad">Compatibilidad</a>
+  <a href="#compatibilidad">Compatibilidad</a> ·
+  <a href="https://rubydoc.info/gems/active_durable">Referencia de la API</a>
 </p>
 
 ---

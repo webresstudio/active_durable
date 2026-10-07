@@ -9,6 +9,8 @@ module ActiveDurable
   #
   # Every operation takes the execution only when no worker holds it, and rotates the lease token so a
   # stale worker can never write again.
+  #
+  # @api private
   module Operations
     module_function
 

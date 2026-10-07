@@ -2,6 +2,8 @@
 
 module ActiveDurable
   # A named recipe: the block that describes the steps of a saga.
+  #
+  # @api private
   class Recipe
     attr_reader :name, :version, :block
 
@@ -25,6 +27,8 @@ module ActiveDurable
   # Recipes are looked up by name when a worker picks up an execution, possibly in a fresh process.
   # In a Rails app, put each recipe in app/sagas/<name>_saga.rb and assign it to a constant
   # (CheckoutSaga = Durable.define(:checkout) { ... }). The registry autoloads that constant on a miss.
+  #
+  # @api private
   class Registry
     def initialize
       @recipes = {}

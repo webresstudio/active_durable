@@ -6,6 +6,8 @@ module ActiveDurable
   #   flow.step :charge, retry: 5 { ... }
   #   flow.step :charge, retry: { attempts: 5, backoff: [1, 10, 60] } { ... }
   #   flow.step :charge, retry: false { ... }   # a single attempt
+  #
+  # @api private
   class RetryPolicy
     attr_reader :attempts
 

@@ -13,9 +13,14 @@ module ActiveDurable
   # Spans nest: a worker run ("active_durable.execution checkout") contains its steps, and flow.parallel
   # branches stay under it even though they run in other threads. Failed steps record the exception.
   module OpenTelemetry
+    # The ActiveSupport::Notifications events that become spans.
     EVENTS = %w[execution step compensation undo hook].freeze
 
     class << self
+      # Starts tracing. Call it once, after configuring OpenTelemetry::SDK.
+      #
+      # @param tracer_provider [::OpenTelemetry::Trace::TracerProvider]
+      # @return [self]
       def install!(tracer_provider: ::OpenTelemetry.tracer_provider)
         uninstall!
         subscriber = Subscriber.new(tracer_provider.tracer("active_durable", ActiveDurable::VERSION))
@@ -26,6 +31,9 @@ module ActiveDurable
         self
       end
 
+      # Stops tracing.
+      #
+      # @return [void]
       def uninstall!
         Array(@subscriptions).each { |subscription| ActiveSupport::Notifications.unsubscribe(subscription) }
         @subscriptions = nil
@@ -34,6 +42,8 @@ module ActiveDurable
     end
 
     # Starts a span when an event starts and ends it when the event finishes, so spans nest naturally.
+    #
+    # @api private
     class Subscriber
       def initialize(tracer)
         @tracer = tracer
@@ -81,6 +91,8 @@ module ActiveDurable
     end
 
     # Carries the current span into flow.parallel branch threads.
+    #
+    # @api private
     module ContextPropagation
       def self.capture
         ::OpenTelemetry::Context.current

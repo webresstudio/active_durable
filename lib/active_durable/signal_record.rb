@@ -2,6 +2,8 @@
 
 module ActiveDurable
   # A message for a saga that is (or will be) waiting in flow.wait_for.
+  #
+  # @api private
   class SignalRecord < Record
     self.table_name = "durable_signals"
 
