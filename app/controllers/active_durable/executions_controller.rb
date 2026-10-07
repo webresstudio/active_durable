@@ -24,6 +24,7 @@ module ActiveDurable
       steps = @execution.steps.to_a
       @steps = steps
       @forward_steps = steps.select(&:forward?).sort_by { |step| step.position.to_i }
+      @rerun_steps = @forward_steps.select(&:position) # a parallel branch cannot be a starting point
       @undo_steps = steps.select(&:undo?)
       @hook_steps = steps.select(&:hook?)
       @signals = @execution.signals.to_a
@@ -32,7 +33,7 @@ module ActiveDurable
 
     def retry_now
       ActiveDurable.retry(params[:id])
-      redirect_to execution_path(params[:id]), notice: "Retrying. Failed steps got a fresh set of attempts."
+      redirect_to execution_path(params[:id]), notice: "Retrying. The step that blocked it got a fresh set of attempts."
     end
 
     def compensate

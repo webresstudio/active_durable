@@ -14,13 +14,14 @@ module ActiveDurable
   module Operations
     module_function
 
-    # A blocked execution tries again from where it stopped: failed steps (or failed undos, if it was
-    # compensating) get a fresh set of attempts. Deploy the fix first when the cause was a bug.
+    # A blocked execution tries again from where it stopped: the step that blocked it (or the failed undos, if it
+    # was compensating) gets a fresh set of attempts. Failed steps the recipe already handled, such as a payment
+    # provider it replaced with another one, stay failed: running them again would pay twice. Deploy the fix
+    # first when the cause was a bug.
     def retry(execution_id)
       execution = with_idle_execution(execution_id, allowed: %w[blocked]) do |record|
-        failed = record.steps.where(status: "failed")
-        failed = record.compensating ? failed.where(kind: "undo") : failed.where.not(kind: "undo")
-        failed.update_all(status: "retrying", attempts: 0, wake_at: nil, updated_at: ActiveDurable.now)
+        blocking_steps(record).update_all(status: "retrying", attempts: 0, wake_at: nil,
+                                          updated_at: ActiveDurable.now)
         reopen!(record, error: nil)
       end
       ActiveDurable.instrument("retried", execution_id: execution.id)
@@ -52,9 +53,7 @@ module ActiveDurable
       Record.transaction do
         original = Execution.lock.find(execution_id)
         check_rerunnable!(original)
-        start = original.steps.where.not(kind: %w[undo hook]).find_by(name: from)
-        raise Error, "#{original.id} has no step :#{from} in its notebook" unless start
-
+        start = rerun_start(original, from)
         execution = Execution.create!(id: rerun_id(original), recipe: original.recipe,
                                       recipe_version: original.recipe_version, input: original.input,
                                       status: "pending", forked_from: original.id)
@@ -63,6 +62,15 @@ module ActiveDurable
       end
       ActiveDurable.instrument("rerun", execution_id: execution.id, forked_from: execution.forked_from, from: from)
       execution
+    end
+
+    def rerun_start(original, from)
+      start = original.steps.where.not(kind: %w[undo hook]).find_by(name: from)
+      raise Error, "#{original.id} has no step :#{from} in its notebook" unless start
+      return start if start.position
+
+      parallel = from.split("/", 2).first
+      raise Error, ":#{from} is a branch of flow.parallel :#{parallel}; rerun from :#{parallel} instead"
     end
 
     def with_idle_execution(execution_id, allowed:)
@@ -95,18 +103,44 @@ module ActiveDurable
                    "only completed executions, or blocked ones that are not compensating, can be rerun"
     end
 
-    def rerun_id(original)
-      root = original.id.sub(/~rerun-\d+\z/, "")
-      count = Execution.where("id LIKE ?", "#{Execution.sanitize_sql_like(root)}~rerun-%").count
-      "#{root}~rerun-#{count + 1}"
+    # Moving forward: the step named by the error, or the whole flow.parallel it belongs to, and every step that
+    # hit a bug. Compensating: every failed undo, since each of them stopped the compensation.
+    def blocking_steps(record)
+      steps = record.steps
+      return steps.where(kind: "undo", status: "failed") if record.compensating
+
+      name = record.error.is_a?(Hash) ? record.error["step"].to_s : ""
+      failed = steps.where(status: "failed").where.not(kind: %w[undo hook])
+      parallel = failed.where(kind: "parallel").pluck(:name)
+                       .find { |group| name == group || name.start_with?("#{group}/") }
+      named = if parallel
+                failed.where(name: parallel).or(failed.where("name LIKE ?", "#{Step.sanitize_sql_like(parallel)}/%"))
+              else
+                failed.where(name: name)
+              end
+      named.or(steps.where(status: "blocked"))
     end
 
+    # A random suffix, never a count: a pruned rerun must not hand its id, and so its tickets, to a new one.
+    def rerun_id(original)
+      root = original.id.sub(/~rerun-\h+\z/, "")
+      "#{root}~rerun-#{SecureRandom.hex(4)}"
+    end
+
+    # The steps before `from` that completed or failed (a failure the recipe handled must stay handled), and the
+    # branches of each flow.parallel among them, in the order they finished, so their undos still run.
     def copy_steps(original, execution, before:)
+      forward = original.steps.where.not(kind: %w[undo hook]).where(status: %w[completed failed])
+      kept = forward.where(position: ...before).order(:position).to_a
+      groups = kept.select { |step| step.kind == "parallel" }.map { |step| "#{step.name}/" }
+      branches = forward.where(position: nil).order(:updated_at, :id).select do |step|
+        groups.any? { |prefix| step.name.start_with?(prefix) }
+      end
       now = ActiveDurable.now
-      rows = original.steps.where.not(kind: %w[undo hook]).where(status: "completed").where(position: ...before)
-                     .map do |step|
+      rows = (kept + branches).map do |step|
         { execution_id: execution.id, name: step.name, kind: step.kind, position: step.position,
-          status: "completed", attempts: step.attempts, result: step.result, created_at: now, updated_at: now }
+          status: step.status, attempts: step.attempts, result: step.result, error: step.error,
+          created_at: now, updated_at: now }
       end
       Step.insert_all!(rows) if rows.any?
     end

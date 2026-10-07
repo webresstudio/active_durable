@@ -36,6 +36,47 @@ RSpec.describe ActiveDurable::Operations do
       expect(notebook(id)["ship"].status).to eq("failed") # the trigger stays failed
     end
 
+    it "does not run again a failed step the recipe already handled" do
+      charges = []
+      stripe_down = true
+      bug = true
+      Durable.define(:pay) do |flow|
+        begin
+          flow.step(:stripe, retry: 2) { stripe_down ? raise(IOError, "stripe down") : charges << :stripe }
+        rescue ActiveDurable::StepFailed
+          flow.step(:paypal) { charges << :paypal }
+        end
+        flow.step(:label) { bug ? nil.upcase : true }
+      end
+      id = drain(Durable.start(:pay).id).tap { |execution| expect(execution.status).to eq("blocked") }.id
+
+      stripe_down = false # Stripe is back by the time the fix is deployed
+      bug = false
+      Durable.retry(id)
+
+      expect(drain(id).status).to eq("completed")
+      expect(charges).to eq([:paypal])
+      expect(notebook(id)["stripe"]).to have_attributes(status: "failed", attempts: 2)
+    end
+
+    it "gives a flow.parallel blocked after the pivot a fresh set of attempts" do
+      ActiveDurable.config.after_pivot_attempts = 1
+      up = false
+      Durable.define(:notify) do |flow|
+        flow.pivot(:dispatch) { 1 }
+        flow.parallel(:tell) do |branches|
+          branches.step(:sms) { up || raise(IOError, "sms down") }
+          branches.step(:email) { up || raise(IOError, "smtp down") }
+        end
+      end
+      id = drain(Durable.start(:notify).id).tap { |execution| expect(execution.status).to eq("blocked") }.id
+
+      up = true
+      Durable.retry(id)
+
+      expect(drain(id).status).to eq("completed")
+    end
+
     it "refuses executions that are not blocked, or that a worker holds" do
       Durable.define(:nap) { |flow| flow.sleep(:nap, 60) }
       id = Durable.start(:nap).id
@@ -95,11 +136,76 @@ RSpec.describe ActiveDurable::Operations do
 
       rerun = Durable.rerun(original.id, from: :render)
 
-      expect(rerun).to have_attributes(id: "report-1~rerun-1", forked_from: "report-1", status: "pending")
+      expect(rerun).to have_attributes(forked_from: "report-1", status: "pending")
+      expect(rerun.id).to match(/\Areport-1~rerun-\h{8}\z/)
       expect(drain(rerun.id).status).to eq("completed")
       expect(runs).to eq(collect: 1, render: 2, send: 2)
       expect(original.reload.status).to eq("completed")
-      expect(Durable.rerun(original.id, from: :send).id).to eq("report-1~rerun-2")
+    end
+
+    it "never reuses an id, even after older reruns are pruned: the new steps need new tickets" do
+      Durable.define(:report) { |flow| flow.step(:send) { true } }
+      original = drain(Durable.start(:report, id: "report-1").id)
+      first = drain(Durable.rerun(original.id, from: :send).id)
+      second = drain(Durable.rerun(first.id, from: :send).id)
+      ActiveDurable::Execution.where(id: first.id).update_all(updated_at: 40.days.ago)
+      Durable.prune(older_than: 30.days)
+
+      third = Durable.rerun(original.id, from: :send)
+
+      expect([first.id, second.id, third.id].uniq.size).to eq(3)
+      expect([second.id, third.id]).to all(start_with("report-1~rerun-"))
+      expect(second.id.count("~")).to eq(1)
+    end
+
+    it "keeps the failed steps before the chosen one, so a handled failure does not run again" do
+      charges = []
+      stripe_down = true
+      Durable.define(:pay) do |flow|
+        begin
+          flow.step(:stripe, retry: 1) { stripe_down ? raise(IOError, "stripe down") : charges << :stripe }
+        rescue ActiveDurable::StepFailed
+          flow.step(:paypal) { charges << :paypal }
+        end
+        flow.step(:label) { true }
+      end
+      original = drain(Durable.start(:pay).id)
+
+      stripe_down = false
+      expect(drain(Durable.rerun(original.id, from: :label).id).status).to eq("completed")
+      expect(charges).to eq([:paypal])
+    end
+
+    it "keeps the branches of a flow.parallel before the chosen step, so their undos still run" do
+      released = []
+      fail_ship = false
+      Durable.define(:par) do |flow|
+        flow.parallel(:reserve) do |branches|
+          branches.step("MEX", undo: -> { released << "MEX" }) { { "id" => 1 } }
+          branches.step("GDL", undo: -> { released << "GDL" }) { { "id" => 2 } }
+        end
+        flow.step(:charge, undo: -> { released << "charge" }) { true }
+        flow.step(:ship, retry: false) { fail_ship ? raise(IOError, "no") : true }
+      end
+      original = drain(Durable.start(:par).id)
+
+      fail_ship = true
+      rerun = drain(Durable.rerun(original.id, from: :ship).id)
+
+      expect(rerun.status).to eq("compensated")
+      expect(released).to contain_exactly("charge", "MEX", "GDL")
+      expect(released.first).to eq("charge")
+    end
+
+    it "refuses a branch of a flow.parallel as the step to start from" do
+      Durable.define(:par) do |flow|
+        flow.parallel(:reserve) { |branches| branches.step("MEX") { 1 } }
+        flow.step(:charge) { true }
+      end
+      original = drain(Durable.start(:par).id)
+
+      expect { Durable.rerun(original.id, from: "reserve/MEX") }
+        .to raise_error(ActiveDurable::Error, %r{reserve/MEX is a branch of flow.parallel :reserve})
     end
 
     it "marks a blocked original as superseded so it can never compensate" do

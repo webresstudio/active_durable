@@ -83,7 +83,7 @@ RSpec.describe "The dashboard in an API-only app" do
 
     post "/durable/executions/ship-1/rerun", from: "email", authenticity_token: token_from(last_response.body)
 
-    expect(last_response.location).to end_with("/durable/executions/ship-1~rerun-1")
+    expect(last_response.location).to match(%r{/durable/executions/ship-1~rerun-\h{8}\z})
     expect(ActiveDurable::Execution.find("ship-1").status).to eq("superseded")
   end
 

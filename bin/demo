@@ -59,14 +59,14 @@ FakeMailer.reset!
 ActiveDurable::Runner.run(Durable.start(:checkout, id: "checkout-1004", order_id: 1004).id) # sleeps 3 days
 ActiveDurable::Runner.run(Durable.start(:loan, id: "loan-42", amount: 50_000).id)
 run_until_settled(Durable.start(:loan, id: "loan-43", amount: 12_000).id, signals: { kyc_done: { "verified" => true } })
-Durable.rerun("checkout-1001", from: :confirmation_email)
-run_until_settled("checkout-1001~rerun-1")
+rerun_id = Durable.rerun("checkout-1001", from: :confirmation_email).id
+run_until_settled(rerun_id)
 ActiveDurable.enqueue_disabled = false
 
 # Draining fast-forwards the clock past sleeps and retries; bring every timestamp back to the present so the
 # dashboard does not show times in the future.
 ActiveDurable::Testing.reset!
-offsets = { "checkout-1001" => 42, "checkout-1001~rerun-1" => 3, "checkout-1002" => 27, "checkout-1003" => 9,
+offsets = { "checkout-1001" => 42, rerun_id => 3, "checkout-1002" => 27, "checkout-1003" => 9,
             "checkout-1004" => 15, "loan-42" => 6, "loan-43" => 33 }
 offsets.each do |id, minutes|
   at = Time.current - minutes.minutes

@@ -29,7 +29,7 @@
   </section>
 <% end %>
 
-<% if can_retry?(@execution) || can_compensate?(@execution, @forward_steps) || (can_rerun?(@execution) && @forward_steps.any?) %>
+<% if can_retry?(@execution) || can_compensate?(@execution, @forward_steps) || (can_rerun?(@execution) && @rerun_steps.any?) %>
   <section class="actions" aria-label="Actions">
     <% if can_retry?(@execution) %>
       <%= button_to retry_execution_path(@execution), class: "primary", form_class: "inline" do %>Retry<% end %>
@@ -40,10 +40,10 @@
         Undo everything
       <% end %>
     <% end %>
-    <% if can_rerun?(@execution) && @forward_steps.any? %>
+    <% if can_rerun?(@execution) && @rerun_steps.any? %>
       <%= form_with url: rerun_execution_path(@execution), method: :post, class: "inline", local: true do %>
         <label for="rerun-from">Run again from</label>
-        <%= select_tag :from, options_for_select(@forward_steps.map(&:name), rerun_default(@forward_steps)), id: "rerun-from" %>
+        <%= select_tag :from, options_for_select(@rerun_steps.map(&:name), rerun_default(@rerun_steps)), id: "rerun-from" %>
         <button type="submit">Rerun</button>
       <% end %>
       <p class="note">A rerun is a new execution. Steps before the one you choose are reused; that step and the ones
